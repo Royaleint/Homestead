@@ -12,6 +12,11 @@ local K = S.color
 local SP = S.space
 local R = S.row
 
+-- The steps of a list's draw are traced on their own, so the performance report can tell them apart.
+local function Trace(operation, workload, fn, ...)
+    return HA.PerformanceTrace:Measure(operation, workload, fn, ...)
+end
+
 local W = {}
 B.Widgets = W
 
@@ -25,21 +30,19 @@ end
 
 local ruler
 
-local function Ruler(role, text, width, anywhere)
+local function Ruler(role, text, width)
     if not ruler then
         ruler = UIParent:CreateFontString(nil, "ARTWORK")
         ruler:Hide()
     end
     ruler:SetFontObject(S.FontName(role))
-    ruler:SetNonSpaceWrap(anywhere == true)
     ruler:SetWidth(width or 0)
     ruler:SetText(text or "Ag")
     return ruler
 end
 
--- anywhere lets a word wider than the width break, as a text with SetNonSpaceWrap does.
-function W.TextHeight(role, text, width, anywhere)
-    return Ruler(role, text, width, anywhere):GetStringHeight()
+function W.TextHeight(role, text, width)
+    return Ruler(role, text, width):GetStringHeight()
 end
 
 -- The text on one line.
@@ -88,25 +91,6 @@ end
 
 function W.IconRowHeight()
     return Measured("iconRow", MeasureIconRow)
-end
-
--- The height of a catalog tile w wide: the icon square inside the pad, a pad, and the tallest name among items
--- (nameOf gives one) wrapped at the icon's width, then a pad. A name is measured once per width, until the text size changes.
-local function TileHeight(items, nameOf, w)
-    local room, seen = w - 2 * S.tile.pad, Measured("tileNames", function() return {} end)
-    local at = seen[room] or {}
-    seen[room] = at
-    local tallest = W.TextHeight("body")
-    for _, item in ipairs(items) do
-        local name = nameOf(item)
-        local h = at[name]
-        if not h then
-            h = W.TextHeight("body", name, room, true)
-            at[name] = h
-        end
-        if h > tallest then tallest = h end
-    end
-    return w + S.tile.pad + tallest
 end
 
 function W.StateWords(state, arg)
@@ -262,28 +246,25 @@ function W.WaypointButton(parent)
     return b
 end
 
--- bare leaves out the plate behind the icon.
-function W.NewTile(parent, size, bare)
+function W.NewTile(parent, size)
     local tile = { icon = parent:CreateTexture(nil, "ARTWORK") }
     tile.icon:SetSize(size, size)
     Coord(tile.icon, C.wareIcon)
-    if not bare then
-        tile.plate = parent:CreateTexture(nil, "ARTWORK", nil, -1)
-        tile.plate:SetAllPoints(tile.icon)
-        tile.plate:SetColorTexture(1, 1, 1, 1)
-        tile.plate:SetGradient("VERTICAL", CreateColor(unpack(K.iconPlateBottom)), CreateColor(unpack(K.iconPlateTop)))
-    end
+    tile.plate = parent:CreateTexture(nil, "ARTWORK", nil, -1)
+    tile.plate:SetAllPoints(tile.icon)
+    tile.plate:SetColorTexture(1, 1, 1, 1)
+    tile.plate:SetGradient("VERTICAL", CreateColor(unpack(K.iconPlateBottom)), CreateColor(unpack(K.iconPlateTop)))
     tile.border = parent:CreateTexture(nil, "OVERLAY")
     tile.border:SetTexture(T.iconBorder)
     tile.border:SetAllPoints(tile.icon)
     return tile
 end
 
--- d = { icon (file) or atlas }; the border takes the colour r, g, b. Sets every field, so a recycled tile
--- keeps nothing.
+-- d = { icon (file) or atlas }; the border, if the tile has one, takes the colour r, g, b. Sets every field, so a
+-- recycled tile keeps nothing.
 function W.SetTile(tile, d, r, g, b)
     if d.atlas then tile.icon:SetAtlas(d.atlas) else tile.icon:SetTexture(d.icon or T.placeholderIcon) end
-    tile.border:SetVertexColor(r, g, b, 1)
+    if tile.border then tile.border:SetVertexColor(r, g, b, 1) end
 end
 
 local function Natural(el)
@@ -643,8 +624,7 @@ local function SetQuestRow(row, d)
 end
 
 W.questKind = {
-    -- The Sources list draws its own headers from "Frame", so the header template's pool is free for these rows.
-    -- A template named for them would be a new entry on the frozen globals allowlist.
+    -- The Sources list draws its own headers from a plain frame, so the header template's pool is free for these rows.
     frameType = "HomesteadDecorBrowserHeader",
     init = SetQuestRow,
     build = function(row)
@@ -703,15 +683,21 @@ end
 
 -- Frames are built once, pooled by frameType: kinds in one list need distinct values (a template if it repeats).
 function W.KindFactory(kinds)
+    local inits = {}
     return function(factory, data)
         local spec = kinds[data.kind]
-        factory(spec.frameType, function(frame, d)
-            if not frame.built then
-                frame.built = true
-                spec.build(frame)
+        local init = inits[spec]
+        if not init then
+            init = function(frame, d)
+                if not frame.built then
+                    frame.built = true
+                    spec.build(frame)
+                end
+                spec.init(frame, d)
             end
-            spec.init(frame, d)
-        end)
+            inits[spec] = init
+        end
+        factory(spec.frameType, init)
     end
 end
 
@@ -739,7 +725,7 @@ function W.NewList(parent, opts)
     end
     list.box, list.bar = box, bar
     function list:SetData(tbl, keepPosition)
-        box:SetDataProvider(CreateDataProvider(tbl), keepPosition)
+        Trace("browser_list_set", #tbl, box.SetDataProvider, box, CreateDataProvider(tbl), keepPosition)
     end
     function list:SetShown(shown)
         box:SetShown(shown)
@@ -748,16 +734,32 @@ function W.NewList(parent, opts)
     return list
 end
 
--- A ware cell is its icon. A named one is a catalog tile: the icon filling the top, the full name wrapped under
--- it, and its own tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
+-- A ware cell is its icon. Given named, it is a catalog tile: Blizzard's tile frame round the icon, with its own
+-- tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
 function W.NewWareCell(cell, named)
     local t = S.tile
-    local tile = W.NewTile(cell, S.ware.size, named)
+    local tile, hover
+    if named then
+        tile = { icon = cell:CreateTexture(nil, "ARTWORK") }
+        Coord(tile.icon, C.wareIcon)
+        tile.icon:SetPoint("CENTER")
+        local frame = cell:CreateTexture(nil, "BACKGROUND")
+        frame:SetAllPoints()
+        frame:SetAtlas(t.atlas)
+        hover = cell:CreateTexture(nil, "BACKGROUND", nil, 1)
+        hover:SetAllPoints()
+        hover:SetAtlas(t.atlas)
+        hover:SetBlendMode("ADD")
+        hover:SetAlpha(0.75)
+        hover:Hide()
+    else
+        tile = W.NewTile(cell, S.ware.size)
+        tile.icon:SetPoint("CENTER")
+        local wash = cell:CreateTexture(nil, "HIGHLIGHT")
+        wash:SetAllPoints()
+        wash:SetColorTexture(unpack(K.hoverRow))
+    end
     cell.named = named
-    if named then tile.icon:SetPoint("TOP", 0, -t.pad) else tile.icon:SetPoint("CENTER") end
-    local hover = cell:CreateTexture(nil, "HIGHLIGHT")
-    hover:SetAllPoints()
-    hover:SetColorTexture(unpack(K.hoverRow))
     if named then cell:RegisterForClicks("LeftButtonUp", "RightButtonUp") else cell:RegisterForClicks("LeftButtonUp") end
     local function Corner(point, x, y)
         local c = cell:CreateTexture(nil, "OVERLAY", nil, 1)
@@ -768,21 +770,12 @@ function W.NewWareCell(cell, named)
     local mark, star, clock = Corner("TOPRIGHT", -2, -2), Corner("TOPLEFT", 2, -2), Corner("BOTTOMLEFT", 2, 2)
     local copies = S.Text(cell, "meta", "OVERLAY")
     copies:SetPoint("BOTTOMRIGHT", tile.icon, "BOTTOMRIGHT", -3, 3)
-    local name
     if named then
-        name = S.Text(cell, "body", "OVERLAY")
-        name:SetJustifyH("CENTER")
-        name:SetJustifyV("TOP")
-        name:SetNonSpaceWrap(true)
-        name:SetPoint("TOP", tile.icon, "BOTTOM", 0, -t.pad)
-        -- A tile w by h: the name gets a fixed box as wide as the icon and as tall as its row's tallest name,
-        -- so its wrap never waits on the pooled frame's size.
+        -- A tile w by h: the icon fills it inside its inset.
         function cell:Fit(w, h)
             if self.w == w and self.h == h then return end
             self.w, self.h = w, h
-            local room = w - 2 * t.pad
-            tile.icon:SetSize(room, room)
-            name:SetSize(room, h - w - t.pad)
+            tile.icon:SetSize(w - 2 * t.inset, h - 2 * t.inset)
         end
     end
 
@@ -791,25 +784,46 @@ function W.NewWareCell(cell, named)
         local st = S.state[d.state]
         local r, g, b = W.QualityRGB(d.quality)
         W.SetTile(tile, d, r, g, b)
-        if name then
-            name:SetText(d.name or "")
-            name:SetTextColor(unpack(d.state == "owned" and K.nameOwned or K.nameMissing))
-        end
-        tile.icon:SetDesaturated(d.state == "locked" or d.mark ~= nil)
+        local grey = d.state == "locked" or d.mark ~= nil
+        tile.icon:SetDesaturated(grey)
         Vis.Marker.Set(mark, st and st.glyph, st and st.color)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
         copies:SetShown(d.copies ~= nil)
         copies:SetText(d.copies and d.copies > 99 and "99+" or d.copies or "")
+        -- A tile rebound under the pointer shows the new decor's tooltip, if the tooltip is still on this tile.
+        if hover and hover:IsShown() then
+            local tip = B.Tooltip()
+            if tip:IsShown() and tip:GetOwner() == self then ShowTip(self) end
+        end
     end
-    cell.Redraw, cell.Reset = Redraw, Reset
+    cell.Redraw = Redraw
+    cell.Reset = Reset
+    if named then
+        cell.Reset = function(self)
+            Reset(self)
+            hover:Hide()
+        end
+    end
     cell:SetScript("OnClick", function(self, button)
         if W.Linked(self.itemID) or not self.itemID then return end
         if named and button == "RightButton" and B.OpenInCatalog(self.itemID) then return end
         B.Go({ kind = "item", id = self.itemID })
     end)
-    cell:SetScript("OnEnter", ShowTip)
-    cell:SetScript("OnLeave", HideTip)
+    if named then
+        cell:SetScript("OnEnter", function(self)
+            hover:Show()
+            ShowTip(self)
+        end)
+        cell:SetScript("OnLeave", function()
+            hover:Hide()
+            HideTip()
+        end)
+        cell:SetScript("OnHide", function() hover:Hide() end)
+    else
+        cell:SetScript("OnEnter", ShowTip)
+        cell:SetScript("OnLeave", HideTip)
+    end
     return cell
 end
 
@@ -858,51 +872,68 @@ function W.NewGrid(parent, cell, gap)
     return list
 end
 
--- The catalog's tiles, as a list of rows: each row holds up to n tiles at least min wide that share out the box's
--- width, and is as tall as its own tallest name wraps (nameOf gives one); describe(element) gives what a tile
--- draws. A width change groups the rows again.
-function W.NewTileGrid(parent, min, gap, describe, nameOf)
-    local n, width, data, rows = 0, min, {}, {}
+-- The catalog's tiles, as a list of rows: each row holds up to n tiles at least S.tile.min wide that share out the
+-- box's width, and is as tall as a tile is wide; describe(element) gives what a tile draws. A width change groups
+-- the rows again. The same elements in the same order, at the same width, keep their rows and only bind again.
+-- A grid given its elements before it has a width draws them on the first frame that has one.
+function W.NewTileGrid(parent, describe)
+    local t = S.tile
+    local n, width, data, rows, drawn = 0, t.min, {}, {}, false
+    -- owed: data is not yet drawn; kept: whether that draw keeps the scroll position.
+    local owed, kept, ticking, Tick = false, false, false, nil
+    local function Wake()
+        if ticking then return end
+        ticking = true
+        C_Timer.After(0, Tick)
+    end
     local function ResetRow(f)
         for _, c in ipairs(f.cells) do c:Reset() end
     end
     local function RedrawRow(f)
         for i = 1, #f.row do f.cells[i]:Redraw() end
     end
+    local function Make(f, i)
+        f.cells[i] = W.NewWareCell(CreateFrame("Button", nil, f), true)
+        return f.cells[i]
+    end
+    local function Bind(f, row)
+        f.row = row
+        for i, item in ipairs(row) do
+            local c = f.cells[i] or Make(f, i)
+            c:SetPoint("TOPLEFT", (i - 1) * (width + t.gapX), 0)
+            c:SetSize(width, row.h)
+            c:Fit(width, row.h)
+            c:Set(describe(item))
+            c:Show()
+        end
+        for i = #row + 1, #f.cells do
+            f.cells[i]:Reset()
+            f.cells[i]:Hide()
+        end
+    end
     local kind = { frameType = "Frame",
-        build = function(f) f.cells, f.Reset, f.Redraw = {}, ResetRow, RedrawRow end,
-        init = function(f, row)
-            f.row = row
-            for i, item in ipairs(row) do
-                local c = f.cells[i]
-                if not c then
-                    c = W.NewWareCell(CreateFrame("Button", nil, f), true)
-                    f.cells[i] = c
-                end
-                c:SetPoint("TOPLEFT", (i - 1) * (width + gap), 0)
-                c:SetSize(width, row.h)
-                c:Fit(width, row.h)
-                c:Set(describe(item))
-                c:Show()
-            end
-            for i = #row + 1, #f.cells do
-                f.cells[i]:Reset()
-                f.cells[i]:Hide()
-            end
-        end }
-    local list = W.NewList(parent, { spacing = gap, kinds = { tiles = kind }, extent = function(row) return row.h end })
-    local box, set = list.box, list.SetData
+        build = function(f)
+            f.cells, f.Reset, f.Redraw = {}, ResetRow, RedrawRow
+            for i = 1, n do Make(f, i) end
+        end,
+        init = function(f, row) Trace("browser_grid_bind", #row, Bind, f, row) end }
+    local list = W.NewList(parent, { spacing = t.gapY, kinds = { tiles = kind }, extent = function(row) return row.h end })
+    local box = list.box
 
     local function Restride()
         local w = box:GetWidth()
-        if w < min then return false end
-        local k = math.floor((w + gap) / (min + gap))
-        local cw = math.floor((w - (k - 1) * gap) / k)
+        if w < t.min then return false end
+        local k = math.floor((w + t.gapX) / (t.min + t.gapX))
+        local cw = math.floor((w - (k - 1) * t.gapX) / k)
         if k == n and cw == width then return false end
         n, width = k, cw
         return true
     end
-    -- Rows of n in order, each as tall as its icon and its tallest name.
+    -- A box with no width or no height yet lays out no row.
+    local function Ready()
+        return n > 0 and box:GetHeight() >= 1
+    end
+    -- Rows of n in order, each as tall as a tile is wide.
     local function Group()
         rows = {}
         local row
@@ -913,24 +944,72 @@ function W.NewTileGrid(parent, min, gap, describe, nameOf)
             end
             row[#row + 1] = item
         end
-        for _, r in ipairs(rows) do r.h = TileHeight(r, nameOf, width) end
+        for _, r in ipairs(rows) do r.h = width end
     end
     -- A box with nothing to scroll gives the wheel to whatever scrolls behind it.
-    local function Draw(keep)
-        set(list, rows, keep)
+    local function Wheel()
         box:EnableMouseWheel(box:HasScrollableExtent())
     end
-    box:HookScript("OnSizeChanged", function()
-        if Restride() then
+    -- Setting the data lays out the rows and binds the shown ones, each bind traced inside it.
+    local function Draw(keep)
+        local provider = Trace("browser_grid_provider", #rows, CreateDataProvider, rows)
+        drawn, owed = true, false
+        Trace("browser_grid_set", #rows, box.SetDataProvider, box, provider, keep)
+        Wheel()
+    end
+    -- A frame's work while the box is shown (its OnShow starts it again): a draw still owed until the box can lay out
+    -- a row. Measuring a box laid out since the last frame can resize it at once, and the size hook then draws, so
+    -- owed is read again after each measure.
+    function Tick()
+        ticking = false
+        if not box:IsVisible() then return end
+        if owed then Restride() end
+        local ready = owed and Ready()
+        if owed and ready then
             Group()
-            Draw(true)
+            Draw(kept)
+        end
+        if owed then Wake() end
+    end
+    -- A new stride draws the rows again, and a draw still owed is made as soon as the box can lay out a row.
+    box:HookScript("OnSizeChanged", function()
+        local moved = Restride()
+        local ready = not moved and Ready()
+        if moved or owed and ready then
+            Group()
+            Draw(kept or not owed)
+        else
+            Wheel()
         end
     end)
+    box:HookScript("OnShow", function()
+        if owed then Wake() end
+    end)
+
+    local function Same(tbl)
+        if #tbl ~= #data then return false end
+        for i = 1, #tbl do
+            if tbl[i] ~= data[i] then return false end
+        end
+        return true
+    end
 
     function list:SetData(tbl, keep)
-        data = tbl
-        Restride()
-        Group()
+        local same = drawn and not owed and Same(tbl)
+        data, owed, kept = tbl, true, keep
+        local moved = Restride()
+        local ready = Ready()
+        -- The size hook drew these records while the box was measured.
+        if not owed then return end
+        if not ready then return Wake() end
+        owed = false
+        if same and not moved then
+            if not keep then box:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation) end
+            Trace("browser_grid_rebind", #rows, box.ReinitializeFrames, box)
+            Wheel()
+            return
+        end
+        Trace("browser_grid_rows", #tbl, Group)
         Draw(keep)
     end
     return list
@@ -1000,8 +1079,11 @@ W.footerKind = {
     end,
 }
 
-function W.FooterHeight(d, width)
-    return W.TextHeight("body", FooterText(d), width - 2 * SP.s) + W.TextHeight("body") + 2 * SP.s + R.gap
+-- The text at width, as one line when there is no room to measure it in, and at most lines lines if given.
+function W.FooterHeight(d, width, lines)
+    local one = W.TextHeight("body")
+    local text = width > 2 * SP.s and W.TextHeight("body", FooterText(d), width - 2 * SP.s) or one
+    return math.min(text, (lines or math.huge) * one) + one + 2 * SP.s + R.gap
 end
 
 local EMPTY = {

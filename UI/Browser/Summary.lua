@@ -270,7 +270,7 @@ end
 
 -- The buttons for the vendor here who sells the most this character can get now; none with no such vendor.
 local function DrawZone(vendors, mapID)
-    local best, most, ready = nil, 0, HA.CatalogScanner:GetReadState() == "ready"
+    local best, most, ready = nil, 0, D.ReadState() == "ready"
     for _, v in ipairs(vendors) do
         local n = ready and HA.BadgeCalculation:VendorCanGet(v, "all", true) or 0
         if n > most then best, most = v, n end
@@ -401,7 +401,7 @@ function Page.Draw()
     DrawStrip()
     local ranked = CG.Rank()
     if ranked ~= filledFor then fill, filledFor = ranked and CG.Fill(), ranked end
-    local state = fill and "ready" or HA.CatalogScanner:GetReadState()
+    local state = fill and "ready" or D.ReadState()
     at = 0
     -- The title with the vendor buttons at its right, its row as tall as they are even when hidden so the rows
     -- never move with the zone; then the lede with See all at its right.
@@ -418,7 +418,7 @@ function Page.Draw()
         seeW = seeAll:GetWidth() + SP.m
     end
     local ledeText = L["Decor this character can buy or earn today, best first."]
-    if select(2, HA.CatalogScanner:GetReadState()) then ledeText = ledeText .. DOT .. L["Collection not refreshed this session"] end
+    if select(2, D.ReadState()) then ledeText = ledeText .. DOT .. L["Collection not refreshed this session"] end
     lede:SetText(ledeText)
     local ledeW = (main:GetWidth() > 0 and math.min(MEASURE_W, main:GetWidth()) or MEASURE_W) - seeW
     lede:SetWidth(ledeW)

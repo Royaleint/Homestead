@@ -77,6 +77,10 @@ local function IsCurrencySlot(slot)
     return slotTypes ~= nil and slot.dataSlotType == slotTypes.Currency
 end
 
+-- Item ids the client was asked to load, once each a session: a reagent's name is then ready when its recipe's
+-- page opens. Asked directly, so GetItemName's record of its own requests is left as it is.
+local namesAsked = {}
+
 -- Reads one recipe's schematic and indexes every item of every Basic slot.
 -- The recipe leaves `pending` only when it has at least one Basic slot and
 -- every Basic slot named at least one item; otherwise the items it did read
@@ -97,6 +101,11 @@ local function PrimeRecipe(spellID)
                     local itemID = reagent.itemID
                     if itemID then
                         filled = true
+                        if not namesAsked[itemID] and not C_Item.GetItemNameByID(itemID)
+                            and C_Item.DoesItemExistByID(itemID) then
+                            namesAsked[itemID] = true
+                            C_Item.RequestLoadItemDataByID(itemID)
+                        end
                         local map = reagentToDecor[itemID]
                         if not map then
                             map = {}

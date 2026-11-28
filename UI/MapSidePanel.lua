@@ -437,7 +437,7 @@ local function GetVendorItemIDs(vendor, sourceFilter)
         return {}
     end
 
-    local itemIDs = HA.VendorData:GetMergedItemIDs(vendor)
+    local itemIDs = BC:VendorOrder(vendor, HA.VendorData:GetMergedItemIDs(vendor))
     if NormalizePanelSourceFilter(sourceFilter) == "all" then
         return itemIDs
     end

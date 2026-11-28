@@ -26,7 +26,9 @@ local KIND = {
         return { title = d.questName, sub = where or L["Location not recorded"], where = where, questID = d.questID }
     end },
     professions = { L["Profession"], function(d)
-        return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier }
+        return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier,
+            spellID = d.spellID,
+            line = d.skillLevel and L["Requires %s"]:format(("%s (%d)"):format(d.skillTier or d.profession, d.skillLevel)) or nil }
     end },
     drops = { L["Drop"], function(d) return { sub = d.zone, drop = d } end },
     events = { L["Event"], function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
@@ -141,6 +143,7 @@ local function QuestRows(s, data)
     local giver = SM:GetQuestStarter(s.questID)
     local at = SM:GetTreasureSpot(s.questID) or SM:GetQuestStart(s.questID)
     local where = at and s.where and s.where .. " " .. HA.Waypoints:FormatCoords(at.x, at.y) or s.sub
+    if s.line then where = L["%s · %s"]:format(s.line, where) end
     table.sort(s.pick)
     for _, id in ipairs(s.pick) do
         local e = CG.Entry(id)
@@ -181,6 +184,25 @@ local function Stats(s)
         end
     end
     return total, got, can
+end
+
+-- Whether an achievement or quest is done (nil when the game gives no answer), and whether only the account has it.
+local function Done(s)
+    if s.type == "achievements" then
+        local r = HA.SourceManager:GetCompletionStatus(s.items[1], "achievement", s)
+        return r and r.met, r and r.account
+    end
+    local q = s.type == "quests" and s.questID and C_QuestLog
+    if not (q and q.IsQuestFlaggedCompleted) then return nil end
+    if q.IsQuestFlaggedCompleted(s.questID) then return true end
+    if q.IsQuestFlaggedCompletedOnAccount and q.IsQuestFlaggedCompletedOnAccount(s.questID) then return true, true end
+    return false
+end
+
+local function Words(done, acct)
+    if done == nil then return nil end
+    if not done then return L["Incomplete"] end
+    return acct and L["%s · %s"]:format(L["Completed"], L["Account"]) or L["Completed"]
 end
 
 -- A source other than a vendor or a drop whose decor is all left out of the counts gets no row.
@@ -234,7 +256,7 @@ local function RowData(s)
         -- read builds them out of the pins' cache.
         if v then Stats(s) end
         local r = BC:DescribeRow(v and { vendor = v } or { records = DropRecords(s), kind = "drops" },
-            { peek = v and (cs == "ready" or "unread") or nil })
+            { peek = v and (cs == "ready" or "unread") or nil, readState = CG.Checking() and "counting" or nil })
         state, arg, right, color = r.state, r.stateArg, r.countText, r.countColor
     else
         local total, got, can = Stats(s)
@@ -247,7 +269,7 @@ local function RowData(s)
         color = total == 0 and BC.COUNT_COLORS.words or BC.COUNT_COLORS.number
     end
     return {
-        kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
+        kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where or s.line, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
         right = right, rightColor = color,
@@ -263,7 +285,7 @@ end
 -- A vendor's row on another page's list, read as this page reads its own; it opens the card over all vendors.
 -- fill: a missing count may ask for the counts again, once per draw of that list.
 function B.VendorRow(v, fill)
-    cs = HA.CatalogScanner:GetReadState()
+    cs = D.ReadState()
     if fill then asked = false end
     local d = RowData(VendorEntry(v))
     d.selected, d.narrow = nil, nil
@@ -352,7 +374,10 @@ end
 
 local function Extent(d)
     if d.kind == "quest" then return W.QuestRowHeight() end
-    if d.kind == "header" then return W.HeaderExtent(d, list.box:GetWidth() - (d.fold and GLYPH + SP.xs or 0)) end
+    if d.kind == "header" then
+        return W.HeaderExtent(d, list.box:GetWidth() - (d.fold and GLYPH + SP.xs or 0)
+            - (d.count and W.TextWidth("body", d.count) + SP.s or 0))
+    end
     if d.kind == "foot" then
         local w = list.box:GetWidth()
         return d.text and W.TextHeight("body", d.text, w - 2 * SP.s) + W.TextHeight("body") + 3 * SP.s
@@ -406,7 +431,7 @@ end
 -- Returns the index of the header of the zone (a map id) when given and the list has a vendor in it, then
 -- the index of the open card's row.
 local function BuildList(keep, zone)
-    asked, cs = false, HA.CatalogScanner:GetReadState()
+    asked, cs = false, D.ReadState()
     local t, hide = wide and "vendors" or st.type, B.State.hideNA
     -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
     local here = zone and Facts.Here()
@@ -469,6 +494,25 @@ local function BuildList(keep, zone)
         local tk = order and tostring(s.e) or tops and t .. "\1" .. s.top or nil
         return tk, s.g and (wide and tostring(s.e) .. "\1" .. s.g or tops and tk .. "\1" .. s.g) or nil
     end
+    -- Achievements and quests carry their state, and each header counts the sources under it that have one.
+    local have, got = {}, {}
+    local function Tally(k, done)
+        if k then have[k], got[k] = (have[k] or 0) + 1, (got[k] or 0) + (done and 1 or 0) end
+    end
+    if tops and t ~= "professions" then
+        for _, s in ipairs(out) do
+            local done, acct = Done(s)
+            s.line = Words(done, acct)
+            if done ~= nil then
+                local tk, sk = KeysOf(s)
+                Tally(tk, done)
+                Tally(sk, done)
+            end
+        end
+    end
+    local function Count(k)
+        return have[k] and L["%d of %d completed"]:format(got[k], have[k]) or nil
+    end
     local function Near(s)
         local at = s.vendor and (s.mapID or Facts.Place(s.vendor))
         return at and (nearby and nearby[at] or HA.MapPinProvider.ZoneOf(at) == zone)
@@ -496,7 +540,7 @@ local function BuildList(keep, zone)
             keys[tk] = true
             canShut = canShut or (fold and not topShut)
             data[#data + 1] = { kind = "header", text = order and D.ExpansionLabel(top) or top, top = true, zone = tk,
-                big = (order or t == "quests") and true or nil, fold = fold or nil, folded = topShut }
+                big = (order or t == "quests") and true or nil, fold = fold or nil, folded = topShut, count = Count(tk) }
         end
         if s.g and s.g ~= group then
             group = s.g
@@ -504,7 +548,7 @@ local function BuildList(keep, zone)
             shut = fold and folded[sk]
             if not topShut then
                 data[#data + 1] = { kind = "header", text = group, nested = (order or tops) and true or nil, zone = sk,
-                    fold = fold or nil, folded = shut }
+                    fold = fold or nil, folded = shut, count = Count(sk) }
                 headAt = #data
                 canShut = canShut or (fold and not shut)
             end
@@ -579,7 +623,10 @@ local headerKind = {
         f.fold = f:CreateTexture(nil, "OVERLAY")
         f.fold:SetSize(GLYPH, GLYPH)
         f.text = S.Text(f, "bodyGold", "OVERLAY")
-        f.text:SetPoint("RIGHT", -SP.s, 0)
+        f.count = S.Text(f, "body", "OVERLAY")
+        f.count:SetPoint("RIGHT", -SP.s, 0)
+        f.count:SetTextColor(unpack(K.body))
+        f.count:SetWordWrap(false)
         f.text:SetJustifyH("LEFT")
         f.text:SetWordWrap(true)
         f:SetScript("OnMouseUp", function(self, button)
@@ -604,6 +651,9 @@ local headerKind = {
         f.fold:SetShown(f.zone ~= nil)
         f.fold:SetPoint("LEFT", x, 0)
         if f.zone then f.fold:SetAtlas(d.folded and S.atlas.expand or S.atlas.collapse) end
+        f.count:SetShown(d.count ~= nil)
+        f.count:SetText(d.count or "")
+        f.text:SetPoint("RIGHT", -(SP.s + (d.count and W.TextWidth("body", d.count) + SP.s or 0)), 0)
         f.text:SetPoint("LEFT", f.zone and x + GLYPH + SP.xs or x, 0)
         f.text:SetFontObject(S.font[d.big and "subheader" or "bodyGold"])
         f.text:SetTextColor(unpack(cap and K.body or K.gold))
@@ -691,12 +741,12 @@ function Rows(s, cells)
             onClick = function() B.Go({ kind = "item", id = itemID }) end,
         }
     end
-    table.sort(rows, function(a, b)
+    if not v then table.sort(rows, function(a, b)
         if a.rank ~= b.rank then return a.rank < b.rank end
         local ka, kb = NK(a.name), NK(b.name)
         if ka ~= kb then return ka < kb end
         return a.itemID < b.itemID
-    end)
+    end) end
     return rows
 end
 
@@ -749,7 +799,7 @@ function Page:Build(parent)
     local th = CreateFrame("Frame", nil, lh)
     th:SetPoint("TOPLEFT", shopNote, "BOTTOMLEFT", 0, -SP.xs)
     th:SetPoint("BOTTOMRIGHT")
-    tiles = W.NewTileGrid(th, S.tile.min, S.tile.gap, ShopTile, function(s) return s.title end)
+    tiles = W.NewTileGrid(th, ShopTile)
     P = parent
     Vend:Build(parent)
 end
@@ -826,7 +876,6 @@ end
 
 function Page:Refresh(reason)
     if not (list and now) then return end
-    if reason == "data" then B.Walk() end
     if reason == "layout" and vid and Layout() then Arrange() end
     local was = torn
     if reason == "paint" and not torn then
@@ -951,7 +1000,7 @@ function Draw(fresh, saved)
     local s = { vendor = v, type = "vendors", title = HA.VendorData:GetVendorName(v) or L["Unknown"], items = items }
     V.s = s
     local rows = Rows(s, true)
-    local ready = HA.CatalogScanner:GetReadState() == "ready"
+    local ready = D.ReadState() == "ready"
     local act = D.HolidayActive(v) and v.event or Facts.EndeavorActive(v) == true or nil
     local live = act ~= nil
     local n = #rows
@@ -967,7 +1016,10 @@ function Draw(fresh, saved)
         end
     end
 
-    local got, total = D.VendorCounts(v)
+    -- A check under way leaves the counts to the walk: neither the count nor the can-get line comes from the saved record.
+    local checking = CG.Checking()
+    local got, total
+    if not checking then got, total = D.VendorCounts(v) end
     local cw, nh, bh = w - PORTRAIT - SP.m - XRES, W.TextHeight("subheader"), W.TextHeight("body")
     SetFace(v)
     V.name:SetText(s.title)
@@ -989,7 +1041,7 @@ function Draw(fresh, saved)
     Line(V.count, "body", n > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil, cw)
     V.count:ClearAllPoints()
     V.count:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
-    SetCan(V.can, HA.BadgeCalculation:VendorCanGet(v, "all", ready or "unread") or 0, cw)
+    SetCan(V.can, not checking and HA.BadgeCalculation:VendorCanGet(v, "all", ready or "unread") or 0, cw)
     V.can:ClearAllPoints()
     V.can:SetPoint("TOPLEFT", n > 0 and V.count or V.where, "BOTTOMLEFT", 0, -SP.xs)
     V.head:SetSize(w, math.max(PORTRAIT, nh + (live and tagH + 2 or 0) + SP.xs + bh
@@ -1089,6 +1141,92 @@ local function SetPinLine(f, text, spot, title)
     f.wp.wp = spot and { mapID = spot.mapID, x = spot.x, y = spot.y, title = title } or nil
 end
 
+-- A recipe's Basic reagents as { itemID, count }, kept for the session. A read the game cannot answer, or that
+-- leaves a Basic slot with no item, gives nil and is made again next time.
+local kept = {}
+local function Reagents(spellID)
+    if kept[spellID] then return kept[spellID] end
+    if not (C_TradeSkillUI and C_TradeSkillUI.GetRecipeSchematic) then return nil end
+    local ok, schematic = pcall(C_TradeSkillUI.GetRecipeSchematic, spellID, false)
+    if not (ok and schematic and schematic.reagentSlotSchematics) then return nil end
+    local out = {}
+    for _, slot in ipairs(schematic.reagentSlotSchematics) do
+        -- Enum.CraftingReagentType.Basic is 1; modifying, finishing and automatic slots are not listed.
+        if (slot.reagentType or 1) == 1 then
+            local r = slot.reagents and slot.reagents[1]
+            if not (r and r.currencyID) then
+                if not (r and r.itemID) then return nil end
+                out[#out + 1] = { r.itemID, slot.quantityRequired or 1 }
+            end
+        end
+    end
+    kept[spellID] = out[1] and out or nil
+    return kept[spellID]
+end
+
+local function ReagentRow(r)
+    local id = r[1]
+    return { kind = "row", itemID = id, name = D.ItemName(id) or RETRIEVING_ITEM_INFO, icon = D.ItemIcon(id),
+        quality = C_Item.GetItemQualityByID(id), right = L["%d needed"]:format(r[2]), rightColor = K.body,
+        onEnter = function(self) B.ShowLinkTooltip(self, "item:" .. id) end }
+end
+
+-- The decor rows, then the Reagents header and a row for each reagent.
+local function WithReagents(decor, reagents)
+    local rows = {}
+    for i, d in ipairs(decor) do rows[i] = d end
+    rows[#rows + 1] = { kind = "header", text = L["Reagents"] }
+    for _, r in ipairs(reagents) do rows[#rows + 1] = ReagentRow(r) end
+    return rows
+end
+
+-- The reagent section waits until every reagent item has loaded, so a row is never drawn without its name. A
+-- load that does not arrive within REAGENT_WAIT draws the section anyway, the game's waiting words standing in
+-- for each name still out; the names replace them if the load arrives while the recipe is on screen. An item
+-- the game has no record of cannot be waited on (asking raises an error) and keeps the waiting words. wait is
+-- the recipe's load, its time limit and whether that has passed; a redraw of the same recipe keeps the last two.
+local REAGENT_WAIT = 3
+local wait = {}
+
+local function StopWait()
+    if wait.load then wait.load:Cancel() end
+    if wait.timer then wait.timer:Cancel() end
+    wait = {}
+end
+
+-- Draws the section under the decor rows of the page's last draw, keeping the list's scroll if it had rows.
+local function PlaceReagents(spellID, reagents)
+    if not (A.page:IsVisible() and A.s and A.s.spellID == spellID) then return end
+    A.list:SetShown(true)
+    A.list:SetData(WithReagents(A.decor, reagents), A.decor[1] ~= nil)
+end
+
+-- Starts the wait for a recipe's reagents; true when they have all loaded and the section can be drawn now.
+local function WaitReagents(spellID, reagents)
+    local same = wait.spellID == spellID
+    if wait.load then wait.load:Cancel() end
+    if wait.timer and not same then wait.timer:Cancel() end
+    local load = ContinuableContainer:Create()
+    wait = { spellID = spellID, load = load, timer = same and wait.timer or nil, late = same and wait.late }
+    for _, r in ipairs(reagents) do
+        if C_Item.DoesItemExistByID(r[1]) then load:AddContinuable(Item:CreateFromItemID(r[1])) end
+    end
+    local drawing, ready = true, false
+    load:ContinueOnLoad(function()
+        if wait.load ~= load then return end
+        if wait.timer then wait.timer:Cancel() end
+        wait.load, wait.timer = nil, nil
+        if drawing then ready = true else PlaceReagents(spellID, reagents) end
+    end)
+    drawing = false
+    if ready or wait.late then return true end
+    wait.timer = wait.timer or C_Timer.NewTimer(REAGENT_WAIT, function()
+        wait.timer, wait.late = nil, true
+        PlaceReagents(spellID, reagents)
+    end)
+    return false
+end
+
 -- The source of that type and key, named as the page and the crumb show it; nil when the data has none.
 local function Source(sourceType, key)
     local bucket = Statics()[sourceType]
@@ -1118,7 +1256,10 @@ function Src:Build(parent)
     A.count = Text(parent)
     A.can = CanLine(parent)
     A.holder = CreateFrame("Frame", nil, parent)
-    A.list = W.NewList(A.holder, { extent = W.RowHeight, kinds = { row = W.rowKind }, reclaim = true })
+    A.list = W.NewList(A.holder, {
+        extent = function(d) return d.kind == "header" and W.HeaderExtent(d, A.list.box:GetWidth()) or W.RowHeight() end,
+        kinds = { row = W.rowKind, header = headerKind }, reclaim = true,
+    })
     A.report = W.ReportLink(parent, function() Report(A.s) end)
     A.report:SetPoint("BOTTOMLEFT")
     A.stack = { A.head, A.start, A.dig, A.event, A.notes, A.count, A.can, A.hdr }
@@ -1143,7 +1284,7 @@ end
 
 local function DrawSource(keep)
     local s = Source(srcType, srcID)
-    cs, A.s = HA.CatalogScanner:GetReadState(), s
+    cs, A.s = D.ReadState(), s
     local kind = KIND[srcType][1]
     A.name:SetText(s.title)
     local mapID, x, y = Loc(s)
@@ -1156,7 +1297,7 @@ local function DrawSource(keep)
     local start, dig = s.questID and SM:GetQuestStart(s.questID), s.questID and SM:GetTreasureSpot(s.questID)
     SetPinLine(A.start, start and L["Starts in %s"]:format(MapName(start.mapID) or L["Unknown"]), start, s.title)
     SetPinLine(A.dig, dig and L["Dig site in %s"]:format(MapName(dig.mapID) or L["Unknown"]), dig, s.title)
-    Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]) or nil)
+    Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]) or Words(Done(s)))
     Para(A.notes, "body", s.drop and s.drop.notes)
 
     local rows = Rows(s)
@@ -1166,8 +1307,15 @@ local function DrawSource(keep)
     Para(A.hdr, #rows > 0 and "bodyGold" or "body",
         #rows > 0 and L["Decor from this source"] or L["No decor is recorded here. If this source gives decor, report it below."])
     A.report:Fit()
-    A.list:SetShown(#rows > 0)
-    if #rows > 0 then A.list:SetData(rows, keep) end
+    A.decor = rows
+    local reagents = srcType == "professions" and s.spellID and Reagents(s.spellID)
+    if not reagents then
+        StopWait()
+    elseif WaitReagents(s.spellID, reagents) then
+        rows = WithReagents(rows, reagents)
+    end
+    A.list:SetShown(rows[1] ~= nil)
+    if rows[1] then A.list:SetData(rows, keep) end
     Stack()
 end
 
@@ -1187,12 +1335,12 @@ end
 
 function Src:Hide()
     srcTorn = true
+    StopWait()
     B.HideTooltip()
 end
 
 function Src:Refresh(reason)
     if not (A.list and srcID) then return end
-    if reason == "data" then B.Walk() end
     if not srcTorn and reason == "hide" then return end
     if not srcTorn and reason == "paint" then return W.RepaintRows(A.list) end
     srcTorn = false
