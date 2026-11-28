@@ -286,9 +286,9 @@ function B.RepaintData()
     if Shown() and curRoute then Trace("browser_refresh", "data", Repaint, "data") end
 end
 
--- A data change asks for a check here, at most once per coalesced refresh, in combat too; the page draws
--- Counting until the check publishes, but for Catalog tiles drawn from the last walk. A wallet change judges the
--- offers again and draws only if one changed.
+-- A data change asks for a check here, at most once per coalesced refresh, in combat too; pages show Counting
+-- until the check publishes, except that the Catalog keeps tiles it drew from the last finished check. A wallet
+-- change judges the offers again and draws only if one changed.
 local function RunRefresh()
     local wasStale, hadNames, allowed, moved, account, other = stale, names, prewarm, wallet, walletPaint, plain
     timer = nil
