@@ -1164,9 +1164,21 @@ local function Reagents(spellID)
     return kept[spellID]
 end
 
+-- Some items never announce their name through the item event, so each unnamed reagent also asks the client to
+-- call back when it has loaded; the page then draws again.
+local reagentAsked = {}
+local function ReagentName(id)
+    local name = D.ItemName(id)
+    if not name and not reagentAsked[id] then
+        reagentAsked[id] = true
+        Item:CreateFromItemID(id):ContinueOnItemLoad(function() B.RequestRefresh(true) end)
+    end
+    return name or L["Item %d"]:format(id)
+end
+
 local function ReagentRow(r)
     local id = r[1]
-    return { kind = "row", itemID = id, name = D.ItemName(id) or L["Item %d"]:format(id), icon = D.ItemIcon(id),
+    return { kind = "row", itemID = id, name = ReagentName(id), icon = D.ItemIcon(id),
         quality = C_Item.GetItemQualityByID(id), right = L["%d needed"]:format(r[2]), rightColor = K.body,
         onEnter = function(self) B.ShowLinkTooltip(self, "item:" .. id) end }
 end
