@@ -25,7 +25,8 @@ end
 
 local Page, ui = {}, {}
 local cat, walk, readGen, readVer, bareList, drawn
-local hiddenNote
+-- fromWalk: the tiles on screen were drawn from a published walk.
+local hiddenNote, fromWalk
 -- A decor item's catalog record, as the last walk or the counting records read it.
 local bareInfo = {}
 local shown = {}
@@ -368,6 +369,7 @@ function Apply(keep, force)
         out, n, hc, hf, seen = Filter()
     end
     local empty = Empty(status, n, hc + hf > 0, words)
+    fromWalk = walk ~= nil and not empty
     hiddenNote = not empty and hc + hf > 0 and { hidden = hc + hf, collected = hc, faction = hf,
         parts = B.Facts.FactionParts(seen),
         onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end } or nil
@@ -567,6 +569,9 @@ function Page:Refresh(reason)
         W.RepaintRows(ui.grid)
     elseif reason ~= "zone" and reason ~= "stats" then
         if reason == "data" or reason == "return" then ReadWalk() end
+        -- A check rebuilding the walk leaves the tiles drawn from the last one up, rather than Counting or the
+        -- counting records in their place, until its publish draws again. The Hide switch is drawn at once.
+        if fromWalk and reason ~= "hide" and CG.Checking() then return end
         Apply(true, reason == "data" or reason == "names")
     end
 end

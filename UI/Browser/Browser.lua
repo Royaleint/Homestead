@@ -287,7 +287,8 @@ function B.RepaintData()
 end
 
 -- A data change asks for a check here, at most once per coalesced refresh, in combat too; the page draws
--- Counting until the check publishes. A wallet change judges the offers again and draws only if one changed.
+-- Counting until the check publishes, but for Catalog tiles drawn from the last walk. A wallet change judges the
+-- offers again and draws only if one changed.
 local function RunRefresh()
     local wasStale, hadNames, allowed, moved, account, other = stale, names, prewarm, wallet, walletPaint, plain
     timer = nil
