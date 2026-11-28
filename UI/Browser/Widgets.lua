@@ -765,7 +765,7 @@ local function NewPicture(cell, icon, load)
     end
     local function To(id)
         scene:TransitionToModelSceneID(id, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
-        return scene:GetActorByTag("decor")
+        return scene:GetModelSceneID() == id and scene:GetActorByTag("decor")
     end
     -- Frames the actor by the decor's own model scene, as the game's preview does, else by the tile's.
     local function Frame(id)
@@ -814,7 +814,7 @@ local function NewPicture(cell, icon, load)
     function pic.Set(d, grey)
         if not actor then return end
         local a, v = d.asset, d.scene
-        if issecretvalue and (issecretvalue(a) or issecretvalue(v)) then a = nil end
+        if issecretvalue and (issecretvalue(a) or issecretvalue(v)) then a, v = nil, nil end
         a = a and B.Model3D() and not B.Data.RoomID(d.itemID) and a or nil
         v = v or S.tile.sceneID
         greyed = grey
