@@ -1164,12 +1164,12 @@ local function Reagents(spellID)
     return kept[spellID]
 end
 
--- Some items never announce their name through the item event, so each unnamed reagent also asks the client to
--- call back when it has loaded; the page then draws again.
+-- The item event cannot be relied on to announce a loaded name, so each unnamed reagent the client knows also
+-- asks it to call back when it has loaded; the page then draws again.
 local reagentAsked = {}
 local function ReagentName(id)
     local name = D.ItemName(id)
-    if not name and not reagentAsked[id] then
+    if not name and not reagentAsked[id] and C_Item.DoesItemExistByID(id) then
         reagentAsked[id] = true
         Item:CreateFromItemID(id):ContinueOnItemLoad(function() B.RequestRefresh(true) end)
     end
