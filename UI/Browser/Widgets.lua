@@ -741,27 +741,44 @@ end
 local function NewPicture(cell, icon, load)
     local scene = CreateFrame("ModelScene", nil, cell, "NonInteractableModelSceneMixinTemplate")
     scene:SetPoint("CENTER")
-    scene:TransitionToModelSceneID(S.tile.sceneID, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
-    local actor = scene:GetActorByTag("decor")
     scene:Hide()
     scene:EnableMouse(false)
     scene:EnableMouseWheel(false)
     local top = CreateFrame("Frame", nil, cell)
     top:SetAllPoints()
     top:EnableMouse(false)
-    local want, have, pic = nil, nil, {}
+    local actor, framed, greyed
+    local want, have, view, pic = nil, nil, nil, {}
 
-    -- Shows the model in place of the icon once it is the wanted one and has loaded.
+    -- A greyed decor's model is dimmed. A new scene sets the actor's alpha afresh, so this runs again after one.
+    local function Tint()
+        actor:SetDesaturation(greyed and 1 or 0)
+        actor:SetAlpha(greyed and 0.5 or 1)
+    end
+
+    -- Shows the model in place of the icon once it is the wanted one, framed as wanted, and has loaded.
     local function Reveal()
-        if want and want == have and actor:IsLoaded() then
+        if want and want == have and view == framed and actor:IsLoaded() then
             actor:Show()
             icon:Hide()
         end
     end
-    if actor then
+    local function To(id)
+        scene:TransitionToModelSceneID(id, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
+        return scene:GetActorByTag("decor")
+    end
+    -- Frames the actor by the decor's own model scene, as the game's preview does, else by the tile's.
+    local function Frame(id)
+        if id == framed then return end
+        framed = id
+        local a = To(id) or id ~= S.tile.sceneID and To(S.tile.sceneID)
+        if not a then return end
+        actor = a
         actor:SetOnModelLoadedCallback(Reveal)
         actor:Hide()
+        Tint()
     end
+    Frame(S.tile.sceneID)
 
     function pic.Fit(w)
         local side = math.floor(w * S.tile.scene + 0.5)
@@ -780,28 +797,34 @@ local function NewPicture(cell, icon, load)
     end
     -- Gives the actor the wanted model, or lets go of the one it holds; true when a model was asked for.
     function pic.Load()
-        if want == have then return false end
+        if want == have and (not want or view == framed) then return false end
         if have then actor:ClearModel() end
         have = want
         if not want then return false end
+        Frame(view)
         scene:Show()
+        -- The scene sizes a model by its bounds, which on some decor reach far past what is drawn; the collision
+        -- bounds, which the game's preview also prefers, keep such a model filling the scene.
+        actor:SetPreferModelCollisionBounds(true)
         if actor:SetModelByFileID(want) then Reveal() else pic.Clear() end
         return true
     end
-    -- The model of d.asset, unless it is a room plan, a secret value, or the option is off; a greyed decor is dimmed.
+    -- The model of d.asset framed by d.scene, unless it is a room plan, a secret value, or the option is off; a
+    -- greyed decor is dimmed.
     function pic.Set(d, grey)
         if not actor then return end
-        local a = d.asset
-        if issecretvalue and issecretvalue(a) then a = nil end
+        local a, v = d.asset, d.scene
+        if issecretvalue and (issecretvalue(a) or issecretvalue(v)) then a = nil end
         a = a and B.Model3D() and not B.Data.RoomID(d.itemID) and a or nil
-        actor:SetDesaturation(grey and 1 or 0)
-        actor:SetAlpha(grey and 0.5 or 1)
-        if a == want then return end
+        v = v or S.tile.sceneID
+        greyed = grey
+        Tint()
+        if a == want and v == view then return end
         if not a then return pic.Clear() end
-        want = a
+        want, view = a, v
         actor:Hide()
         icon:Show()
-        if a ~= have then return load(pic) end
+        if a ~= have or v ~= framed then return load(pic) end
         scene:Show()
         Reveal()
     end

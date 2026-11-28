@@ -313,7 +313,7 @@ local function Describe(r)
             or select(3, HA.CatalogScanner:GetReadState()) and D.CatalogInfo(id, B.State.catalogMemo) or e.info or {}
         d = { itemID = id, name = Name(r), quality = info.quality or C_Item.GetItemQualityByID(id),
             icon = info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
-            copies = D.Copies(info), state = state, arg = arg, asset = info.asset }
+            copies = D.Copies(info), state = state, arg = arg, asset = info.asset, scene = info.uiModelSceneID }
         r.d = d
     end
     return d
