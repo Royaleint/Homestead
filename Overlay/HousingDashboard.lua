@@ -162,19 +162,30 @@ end
 -- Hook Registration (deferred to Blizzard_HousingDashboard load)
 -------------------------------------------------------------------------------
 
--- WoW engine event listener for real-time progress updates.
--- EndeavorsData's own event frame refreshes the cache first; this handler
--- only needs to update the display with the already-fresh data.
+-- WoW engine event listener for real-time progress updates. Repaint on the
+-- next frame so the data module has consumed this event first; a burst of
+-- updates shares one repaint.
+local repaintPending = false
+
+local function RepaintNextFrame()
+    repaintPending = false
+    UpdateMilestoneDisplay()
+end
+
 local progressFrame = CreateFrame("Frame")
 progressFrame:RegisterEvent("NEIGHBORHOOD_INITIATIVE_UPDATED")
 progressFrame:SetScript("OnEvent", function()
-    UpdateMilestoneDisplay()
+    if repaintPending then return end
+    repaintPending = true
+    C_Timer.After(0, RepaintNextFrame)
 end)
 
 local function OnHousingDashboardLoaded()
     local frame = GetInitiativesFrame()
     if frame and frame.InitiativeSetFrame then
-        hooksecurefunc(frame.InitiativeSetFrame, "Show", UpdateMilestoneDisplay)
+        -- Script hook, not a method hook: secure hooks in a frame's own Show
+        -- slot have raised errors inside Blizzard's refresh.
+        frame.InitiativeSetFrame:HookScript("OnShow", UpdateMilestoneDisplay)
     end
 
     if HA.Events then
