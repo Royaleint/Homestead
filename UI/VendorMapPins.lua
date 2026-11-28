@@ -92,6 +92,26 @@ local MAP_FILTER_SOURCE_LABELS = {
     drop   = "Drop Pins",
 }
 
+local MAP_FILTER_SOURCE_TOOLTIPS = {
+    vendor = "Shows pins for vendors that sell housing decor, on the world map and minimap.",
+    drop   = "Shows pins on zone and dungeon maps for decor that drops from bosses and other creatures.",
+}
+
+-- Hover tooltip for a filter-menu checkbox: label as the title, text as the body.
+local function AttachMapFilterTooltip(checkbox, title, text)
+    checkbox:SetOnEnter(function(button)
+        GameTooltip:ClearAllPoints()
+        GameTooltip:SetPoint("RIGHT", button, "LEFT", -3, 0)
+        GameTooltip:SetOwner(button, "ANCHOR_PRESERVE")
+        GameTooltip_SetTitle(GameTooltip, title)
+        GameTooltip_AddNormalLine(GameTooltip, text)
+        GameTooltip:Show()
+    end)
+    checkbox:SetOnLeave(function()
+        GameTooltip:Hide()
+    end)
+end
+
 -- Sane fallback for a future source type that hasn't earned a display-name
 -- entry above yet: capitalize the registry key ("quest" -> "Quest Pins").
 local function GetMapFilterSourceLabel(sourceKey)
@@ -115,11 +135,11 @@ local function SetMapFilterSourceEnabled(sourceKey, enabled)
     end
 end
 
--- "Fully-collected vendors" entry in the same Homestead menu
+-- "Show Fully-Collected Vendors" entry in the same Homestead menu
 -- section, SHOW-semantics matching Blizzard's filter idiom (checked =
 -- shown). Reads/writes the vendorTracer.hideCompletedVendorPins
--- flag the options panel row (OptionsModel.lua) already owns, inverted —
--- checked here means the flag is NOT set.
+-- flag, inverted, exactly as the options panel row (OptionsModel.lua)
+-- does. Checked means the flag is NOT set.
 local function IsCompletedVendorPinsShown()
     local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
     return not (vendorTracer and vendorTracer.hideCompletedVendorPins)
@@ -131,7 +151,7 @@ local function SetCompletedVendorPinsShown(shown)
     vendorTracer.hideCompletedVendorPins = not shown
 end
 
--- "Vendor pin item details" entry in the same Homestead menu
+-- "Show Pin Decor Details" entry in the same Homestead menu
 -- section, mirroring the options panel row (OptionsModel.lua) that owns
 -- vendorTracer.showVendorPinItemDetails. Same two-surface pattern as
 -- IsCompletedVendorPinsShown/SetCompletedVendorPinsShown above.
@@ -1506,7 +1526,7 @@ function VendorMapPins:Initialize()
 
             rootDescription:CreateTitle("Homestead")
             for _, sourceKey in ipairs(sourceKeys) do
-                rootDescription:CreateCheckbox(GetMapFilterSourceLabel(sourceKey), function()
+                local sourceCheckbox = rootDescription:CreateCheckbox(GetMapFilterSourceLabel(sourceKey), function()
                     return IsMapFilterSourceEnabled(sourceKey)
                 end, function()
                     SetMapFilterSourceEnabled(sourceKey, not IsMapFilterSourceEnabled(sourceKey))
@@ -1518,6 +1538,10 @@ function VendorMapPins:Initialize()
                     self:RequestWorldMapRefresh("map_filter_toggled", 0.1)
                     self:RequestMinimapRefresh("map_filter_toggled", 0.1)
                 end)
+                local sourceTooltip = MAP_FILTER_SOURCE_TOOLTIPS[sourceKey]
+                if sourceTooltip then
+                    AttachMapFilterTooltip(sourceCheckbox, GetMapFilterSourceLabel(sourceKey), sourceTooltip)
+                end
             end
 
             -- Parity with the options panel row's effect set
@@ -1527,7 +1551,7 @@ function VendorMapPins:Initialize()
             -- this setting -- the first version deferred badge suppression -- so
             -- the invalidate call is not currently load-bearing; it
             -- becomes load-bearing once badge suppression lands.
-            local completedCheckbox = rootDescription:CreateCheckbox(HA.L["Fully-collected vendors"], IsCompletedVendorPinsShown, function()
+            local completedCheckbox = rootDescription:CreateCheckbox(HA.L["Show Fully-Collected Vendors"], IsCompletedVendorPinsShown, function()
                 SetCompletedVendorPinsShown(not IsCompletedVendorPinsShown())
                 self:InvalidateBadgeCache()
                 self:RequestWorldMapRefresh("map_filter_completed_toggled", 0.1)
@@ -1537,7 +1561,7 @@ function VendorMapPins:Initialize()
                 GameTooltip:ClearAllPoints()
                 GameTooltip:SetPoint("RIGHT", button, "LEFT", -3, 0)
                 GameTooltip:SetOwner(button, "ANCHOR_PRESERVE")
-                GameTooltip_SetTitle(GameTooltip, HA.L["Fully-collected vendors"])
+                GameTooltip_SetTitle(GameTooltip, HA.L["Show Fully-Collected Vendors"])
                 GameTooltip_AddNormalLine(GameTooltip, HA.L["desc_map_filter_completed_vendors"])
                 GameTooltip:Show()
             end)
@@ -1549,14 +1573,14 @@ function VendorMapPins:Initialize()
             -- unlike the completed-vendor filter above, this doesn't change
             -- which pins are shown, only what their tooltips render, and
             -- tooltip content is already rebuilt fresh on every hover.
-            local itemDetailsCheckbox = rootDescription:CreateCheckbox(HA.L["Vendor pin item details"], IsVendorPinItemDetailsShown, function()
+            local itemDetailsCheckbox = rootDescription:CreateCheckbox(HA.L["Show Pin Decor Details"], IsVendorPinItemDetailsShown, function()
                 SetVendorPinItemDetailsShown(not IsVendorPinItemDetailsShown())
             end)
             itemDetailsCheckbox:SetOnEnter(function(button)
                 GameTooltip:ClearAllPoints()
                 GameTooltip:SetPoint("RIGHT", button, "LEFT", -3, 0)
                 GameTooltip:SetOwner(button, "ANCHOR_PRESERVE")
-                GameTooltip_SetTitle(GameTooltip, HA.L["Vendor pin item details"])
+                GameTooltip_SetTitle(GameTooltip, HA.L["Show Pin Decor Details"])
                 GameTooltip_AddNormalLine(GameTooltip, HA.L["desc_vendor_pin_item_details"])
                 GameTooltip:Show()
             end)

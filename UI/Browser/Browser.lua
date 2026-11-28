@@ -591,7 +591,7 @@ function B.ShowItemTooltip(owner, itemID, npcID, tile)
     owner.npcID = npcID -- the block reads the vendor scope from the owner; none of an earlier hover stays
     HA.SetManagedItemTooltip(tip, itemID)
     if B.Data.RoomID(itemID) then AddRoomPlanLines(tip, itemID, npcID) end
-    if d.active then tip:AddLine(L["Active now: %s"]:format(d.active), unpack(B.Style.color.badge)) end
+    if d.active then tip:AddLine(L["Active Now: %s"]:format(d.active), unpack(B.Style.color.badge)) end
     -- A ware a vendor card lists outside its count says why.
     if owner.d and owner.d.mark then tip:AddLine(owner.d.mark, 1, 1, 1) end
     tip:AddLine(L["Collection"], gold.r, gold.g, gold.b)

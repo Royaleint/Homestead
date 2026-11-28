@@ -23,7 +23,7 @@ local KIND = {
     end },
     quests = { L["Quest"], function(d)
         local where = MapName(HA.SourceManager:GetQuestMap(d.questID))
-        return { title = d.questName, sub = where or L["Location not recorded"], where = where, questID = d.questID }
+        return { title = d.questName, sub = where or L["Location unknown"], where = where, questID = d.questID }
     end },
     professions = { L["Profession"], function(d)
         return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier,
@@ -224,7 +224,7 @@ end
 local function Head(t)
     local w = cs == "ready" and CG.Walk()
     local p = w and w.progress.src[t]
-    return p and L["%d of %d collected"]:format(p.owned, p.total) or L["Counting…"]
+    return p and L["Collected: %d/%d"]:format(p.owned, p.total) or L["Counting…"]
 end
 
 -- An expansion's head counts each ware once, however many of its vendors sell it.
@@ -241,7 +241,7 @@ local function ExpansionHead(vendors)
             end
         end
     end
-    return L["%d of %d collected"]:format(owned, total)
+    return L["Collected: %d/%d"]:format(owned, total)
 end
 
 local Rows
@@ -304,7 +304,7 @@ local function QuestGroup(s)
         if rowExp and D.ExpansionRank(rowExp) then
             s.qt, s.qo = D.ExpansionLabel(rowExp), D.ExpansionRank(rowExp)
         elseif not mapID then
-            s.qt, s.qo = L["Location not recorded"], 2e6
+            s.qt, s.qo = L["Location unknown"], 2e6
         else
             local continent = HA.MapPinProvider.ContinentOf(mapID) or zoneRow and zoneRow.turnIn
             local exp = HA.Constants.ContinentToExpansion[continent]
@@ -332,7 +332,7 @@ local function Place(s, order)
     local v, t = s.vendor, s.type
     if v then
         local zone = s.zone or select(2, Facts.Place(v))
-        s.e, s.g, s.late = D.VendorHome(v), zone or L["Location not recorded"], zone == nil
+        s.e, s.g, s.late = D.VendorHome(v), zone or L["Location unknown"], zone == nil
         s.o = order and order[s.e] or 0
     elseif t == "events" then
         s.o = Live(s.key) and 0 or 1
@@ -511,7 +511,7 @@ local function BuildList(keep, zone)
         end
     end
     local function Count(k)
-        return have[k] and L["%d of %d completed"]:format(got[k], have[k]) or nil
+        return have[k] and L["Completed: %d/%d"]:format(got[k], have[k]) or nil
     end
     local function Near(s)
         local at = s.vendor and (s.mapID or Facts.Place(s.vendor))
@@ -761,7 +761,7 @@ local function Report(s)
     local v = s.vendor
     local mapID, x, y = Loc(s)
     local build, number = GetBuildInfo()
-    HA.OutputWindow:Show(L["Report a data error"], D.ReportText({
+    HA.OutputWindow:Show(L["Report a Problem"], D.ReportText({
         head = not v and { L["%s: %s"]:format(KIND[s.type][1], s.title) } or {},
         vendors = { v and { npcID = v.npcID, name = v.name, zone = select(2, Facts.Place(v)), mapID = mapID, x = x, y = y } },
         build = build, buildNumber = number, version = HA.Constants.VERSION,
@@ -1038,7 +1038,7 @@ function Draw(fresh, saved)
     V.wp:SetShown(mapID ~= nil)
     V.wp.wp = { mapID = mapID, x = mx, y = my, title = s.title, data = { type = "vendor", npcID = v.npcID } }
     -- The count and the can-get line sit under the location, beside the portrait.
-    Line(V.count, "body", n > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil, cw)
+    Line(V.count, "body", n > 0 and (got and L["Collected: %d/%d"]:format(got, total) or L["Counting…"]) or nil, cw)
     V.count:ClearAllPoints()
     V.count:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
     SetCan(V.can, not checking and HA.BadgeCalculation:VendorCanGet(v, "all", ready or "unread") or 0, cw)
@@ -1297,12 +1297,12 @@ local function DrawSource(keep)
     local start, dig = s.questID and SM:GetQuestStart(s.questID), s.questID and SM:GetTreasureSpot(s.questID)
     SetPinLine(A.start, start and L["Starts in %s"]:format(MapName(start.mapID) or L["Unknown"]), start, s.title)
     SetPinLine(A.dig, dig and L["Dig site in %s"]:format(MapName(dig.mapID) or L["Unknown"]), dig, s.title)
-    Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]) or Words(Done(s)))
+    Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active Now"]) or L["Not Active"]) or Words(Done(s)))
     Para(A.notes, "body", s.drop and s.drop.notes)
 
     local rows = Rows(s)
     local total, got, can = Stats(s)
-    Para(A.count, "body", total > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil)
+    Para(A.count, "body", total > 0 and (got and L["Collected: %d/%d"]:format(got, total) or L["Counting…"]) or nil)
     SetCan(A.can, can or 0)
     Para(A.hdr, #rows > 0 and "bodyGold" or "body",
         #rows > 0 and L["Decor from this source"] or L["No decor is recorded here. If this source gives decor, report it below."])

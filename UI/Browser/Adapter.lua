@@ -300,7 +300,7 @@ function D.ReportText(r)
 end
 
 function D.VendorNote(vendor)
-    if vendor.event then return L["Seasonal: %s"]:format(vendor.event) end
+    if vendor.event then return L["Holiday: %s"]:format(vendor.event) end
     if vendor.endeavor then
         local ED = HA.EndeavorsData
         local theme = ED and ED.GetThemeForVendor and ED:GetThemeForVendor(vendor)

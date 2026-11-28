@@ -181,7 +181,7 @@ end)
 -- item 264500 class — C_Item.DoesItemExistByID true, but the server
 -- never volunteers the data, so GetItemInfo stays nil forever and
 -- GET_ITEM_INFO_RECEIVED never arrives to drive a rebuild; the tooltip line
--- was stuck on "Unknown Item" across hovers AND sessions. The existing precedent
+-- was stuck on "Unknown Decor" across hovers AND sessions. The existing precedent
 -- (Overlay/Tooltips.lua's cold-cache re-render on OnTooltipSetItem) is the
 -- idiom reused here verbatim: Item:CreateFromItemID(itemID):ContinueOnItemLoad
 -- rather than a manual C_Item.RequestLoadItemDataByID + GET_ITEM_INFO_RECEIVED
@@ -205,7 +205,7 @@ end)
 -- then simply never fires. That's not a leak: nothing is polling or holding
 -- a ticker open waiting for it, the closure just sits inert as part of
 -- Blizzard's own item-load callback registry until the item (if ever) loads,
--- and the tooltip correctly keeps showing the honest "Unknown Item" fallback
+-- and the tooltip correctly keeps showing the honest "Unknown Decor" fallback
 -- in the meantime.
 local requestedItemDataIDs = {}
 
@@ -298,7 +298,7 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     if not resolvedName and itemID then
         RequestItemDataForTooltip(itemID)
     end
-    local itemName = resolvedName or "Unknown Item"
+    local itemName = resolvedName or "Unknown Decor"
     local availabilityState = nil
     local allSources = nil
     local SM = HA.SourceManager
@@ -345,7 +345,7 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     return availabilityState
 end
 
--- "Vendor pin item details" toggle (default ON) gates the whole
+-- "Show Pin Decor Details" toggle (default ON) gates the whole
 -- pin-tooltip enrichment as a unit -- source icons, cost
 -- column, and the vendor-only summary line. Read fresh per tooltip build
 -- (cheap -- tooltip content already rebuilds per hover), not cached at load.
@@ -388,7 +388,7 @@ end
 
 local function AddVendorWareLines(tooltip, vendor, wares, first, last, itemDetailsEnabled)
     tooltip:AddLine(" ")
-    tooltip:AddLine("Items Sold:", 1, 1, 0)
+    tooltip:AddLine("Decor Sold:", 1, 1, 0)
 
     for index = first, last do
         AddPinTooltipItemLine(tooltip, wares[index], {
@@ -415,7 +415,7 @@ local function AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnab
     local stats = HA.VendorMapPins:GetVendorStats(vendor, HA.VendorMapPins:GetActiveSourceFilter())
     if stats.total > 0 then
         tooltip:AddLine(" ")
-        BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
+        BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked)
 
         -- count of items at this vendor with no non-vendor source
         -- type. Read from stats.vendorOnly (BadgeCalculation) rather than
@@ -794,7 +794,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     local scannedCostByItemID = {}
     local scannedCostKnownByItemID = {}
     -- Rows of one item with different priced bundles have no single scanned
-    -- cost: such an item shows its cost as unverified, whatever the row order.
+    -- cost: such an item shows its price as unknown, whatever the row order.
     -- A whole-set pair is decided by its set state first, exactly as the item
     -- tooltip's SourceManager path does; the disagreement fallback applies
     -- only to pairs without one (an approved set's own rows always differ).
@@ -884,7 +884,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     else
         -- No item data available
         tooltip:AddLine(" ")
-        tooltip:AddLine("Item data unknown - visit vendor to scan", 1, 0.82, 0)
+        tooltip:AddLine("Decor unknown - visit vendor to scan", 1, 0.82, 0)
     end
     AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnabled)
     tooltip:Show()
@@ -922,7 +922,7 @@ function VendorPinTooltips:ShowZoneBadgeTooltip(pin, zoneInfo)
     end
 
     -- Collection summary
-    BC.AddSummaryLine(tooltip, zoneInfo.collectedItems, zoneInfo.totalItems, zoneInfo.lockedItems, zoneInfo.unverifiedItems)
+    BC.AddSummaryLine(tooltip, zoneInfo.collectedItems, zoneInfo.totalItems, zoneInfo.lockedItems)
 
     if zoneInfo.unknownCount and zoneInfo.unknownCount > 0 then
         tooltip:AddLine(format("Unknown status: %d vendor(s) (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
@@ -931,7 +931,7 @@ function VendorPinTooltips:ShowZoneBadgeTooltip(pin, zoneInfo)
     local knownVendors = zoneInfo.vendorCount - (zoneInfo.unknownCount or 0)
     local allCollected = (zoneInfo.uncollectedCount or 0) == 0 and knownVendors > 0
     if allCollected and (zoneInfo.unknownCount or 0) == 0 then
-        tooltip:AddLine("All items collected!", 0.5, 0.5, 0.5)
+        tooltip:AddLine("All decor collected!", 0.5, 0.5, 0.5)
     end
 
     tooltip:AddLine(" ")
@@ -1044,7 +1044,7 @@ function VendorPinTooltips:ShowDropPinTooltip(pin, record)
     end
 
     tooltip:AddLine(" ")
-    BC.AddSummaryLine(tooltip, collected, #record.records - excluded, locked, 0)
+    BC.AddSummaryLine(tooltip, collected, #record.records - excluded, locked)
 
     tooltip:Show()
 end

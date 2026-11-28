@@ -957,10 +957,10 @@ local function CreateBossRow(parent)
         end
         if self.total and self.total > 0 then
             local stats = BC:GetDropGroupStats(self.dropGroup.records)
-            BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, 0)
+            BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked)
         end
         tooltip:AddLine(" ")
-        tooltip:AddLine("Click to show items", 0.5, 0.5, 0.5)
+        tooltip:AddLine("Click to show decor", 0.5, 0.5, 0.5)
         tooltip:Show()
     end)
 
@@ -1234,7 +1234,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
         line.badge:Hide()
 
         if NormalizePanelSourceFilter(sourceFilter) == "all" then
-            line.text:SetText("Source details unavailable")
+            line.text:SetText(L["Source unknown"])
         else
             line.text:SetText("No matching " .. GetSourceFilterLabel(sourceFilter):lower() .. " sources")
         end
@@ -1431,7 +1431,7 @@ local function RenderItemRow(row, rec)
     else
         row.sourceBadge:Hide()
         if NormalizePanelSourceFilter(sourceFilter) == "all" then
-            row.sourceText:SetText("Source details unavailable")
+            row.sourceText:SetText(L["Source unknown"])
         else
             row.sourceText:SetText("No matching " .. GetSourceFilterLabel(sourceFilter):lower() .. " sources")
         end
@@ -1596,7 +1596,7 @@ local function CreateVendorRow(parent)
         end
         if self.total and self.total > 0 then
             local stats = BC:GetVendorStats(self.vendor, State.panelSourceFilter)
-            BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
+            BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked)
         end
         tooltip:AddLine(" ")
         if self.searchMode then
@@ -1605,12 +1605,12 @@ local function CreateVendorRow(parent)
                 tooltip:AddLine(expansionText, 0.5, 0.5, 0.5)
             end
             if State.expandedVendorID == self.vendor.npcID then
-                tooltip:AddLine("Click to collapse items", 0.5, 0.5, 0.5)
+                tooltip:AddLine("Click to collapse decor", 0.5, 0.5, 0.5)
             else
-                tooltip:AddLine("Click to show items and go to vendor", 0.5, 0.5, 0.5)
+                tooltip:AddLine("Click to show decor and go to vendor", 0.5, 0.5, 0.5)
             end
         else
-            tooltip:AddLine("Click to show items", 0.5, 0.5, 0.5)
+            tooltip:AddLine("Click to show decor", 0.5, 0.5, 0.5)
         end
         tooltip:Show()
         -- Highlight the corresponding map pin at zone level
@@ -1669,9 +1669,9 @@ local function CreateSummaryRow(parent)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         local level = State.currentDisplayLevel
         if level == "world" or row.isContinent then
-            tooltip:SetText("Navigate to continent")
+            tooltip:SetText("View continent map")
         else
-            tooltip:SetText("Navigate to zone")
+            tooltip:SetText("View zone map")
         end
         tooltip:Show()
     end)
@@ -1738,10 +1738,10 @@ local function CreateSummaryRow(parent)
             tooltip:AddLine(string.format("%d vendors", self.vendorCount), 0.7, 0.7, 0.7)
         end
         if self.totalItems > 0 then
-            BC.AddSummaryLine(tooltip, self.collectedItems, self.totalItems, self.lockedItems, self.unverifiedItems)
+            BC.AddSummaryLine(tooltip, self.collectedItems, self.totalItems, self.lockedItems)
         end
         tooltip:AddLine(" ")
-        tooltip:AddLine("Click to expand | Right-click to navigate", 0.5, 0.5, 0.5)
+        tooltip:AddLine("Click to expand | Right-click to view map", 0.5, 0.5, 0.5)
         tooltip:Show()
     end)
 
@@ -1849,7 +1849,7 @@ local function CreateSummarySubRow(parent)
         end
         tooltip:AddLine(" ")
         if self.vendor then
-            tooltip:AddLine("Click to view items", 0.5, 0.5, 0.5)
+            tooltip:AddLine("Click to view decor", 0.5, 0.5, 0.5)
         else
             tooltip:AddLine(self.isContinent and "Click to view continent" or "Click to view zone", 0.5, 0.5, 0.5)
         end
@@ -2319,7 +2319,7 @@ local function CreatePanel()
     State.searchEditBox:SetPoint("BOTTOMRIGHT", State.searchBar, "BOTTOMRIGHT", 0, 0)
     State.searchEditBox:SetMaxLetters(50)
 
-    State.searchEditBox.Instructions:SetText("Search items, vendors...")
+    State.searchEditBox.Instructions:SetText("Search decor, vendors...")
     State.searchEditBox.clearButton:HookScript("OnClick", function()
         ClearSearch(true)
         State.searchEditBox:ClearFocus()
@@ -2448,8 +2448,6 @@ local function CreatePanel()
         local _, max = self:GetMinMaxValues()
         local val = self:GetValue()
         if max > 0 then
-            local pct = math.floor(val / max * 100)
-            tooltip:AddLine(string.format("%d of %d items (%d%%)", val, max, pct), 0.4, 0.8, 0.8)
             local lockedVal = self.lockedValue or 0
             BC.AddSummaryLine(tooltip, val, max, lockedVal)
         end
@@ -2505,7 +2503,7 @@ local function CreatePanel()
     end)
     State.popOutButton:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-        tooltip:SetText("Detach panel")
+        tooltip:SetText("Detach Panel")
         tooltip:Show()
     end)
     State.popOutButton:SetScript("OnLeave", HidePanelTooltip)
@@ -2519,7 +2517,7 @@ local function CreatePanel()
     State.sourceFilterDropdown:SetScript("OnClick", OpenSourceFilterDropdown)
     State.sourceFilterDropdown:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-        tooltip:SetText("Item Source Filter")
+        tooltip:SetText("Decor Source Filter")
         tooltip:AddLine("Current: " .. GetSourceFilterLabel(State.panelSourceFilter), 1, 1, 1)
         tooltip:Show()
     end)
@@ -2552,7 +2550,7 @@ local function CreatePanel()
     end)
     State.reattachButton:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-        tooltip:SetText("Attach to World Map")
+        tooltip:SetText("Attach to Map")
         tooltip:Show()
     end)
     State.reattachButton:SetScript("OnLeave", HidePanelTooltip)
@@ -2678,8 +2676,8 @@ end
 -- Uses WoW 11.0+ native MenuUtil (no library needed).
 local PIN_COLOR_NAMES = {
     default   = "Default (Gold)",
-    green     = "Green",
-    blue      = "Blue",
+    green     = "Bright Green",
+    blue      = "Ice Blue",
     lightblue = "Light Blue",
     cyan      = "Cyan",
     purple    = "Purple",
@@ -2688,6 +2686,20 @@ local PIN_COLOR_NAMES = {
     yellow    = "Yellow",
     white     = "White",
 }
+
+-- Hover tooltip for a context-menu entry: label as the title, text as the body.
+local function AttachMenuTooltip(element, title, text)
+    element:SetOnEnter(function(button)
+        local tooltip = GetPanelTooltip()
+        tooltip:ClearAllPoints()
+        tooltip:SetPoint("RIGHT", button, "LEFT", -3, 0)
+        tooltip:SetOwner(button, "ANCHOR_PRESERVE")
+        GameTooltip_SetTitle(tooltip, title)
+        GameTooltip_AddNormalLine(tooltip, text)
+        tooltip:Show()
+    end)
+    element:SetOnLeave(HidePanelTooltip)
+end
 
 local PIN_COLOR_ORDER = {
     "default", "green", "blue", "lightblue", "cyan",
@@ -2767,9 +2779,9 @@ local function CreateOverlayButton()
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         GameTooltip_SetTitle(tooltip, "Homestead")
         if State.isPoppedOut and State.panelFrame and State.panelFrame:IsShown() then
-            GameTooltip_AddNormalLine(tooltip, "Left-click: Show vendor panel")
+            GameTooltip_AddNormalLine(tooltip, "Left-click: Show Homestead Panel")
         else
-            GameTooltip_AddNormalLine(tooltip, "Left-click: Toggle vendor panel")
+            GameTooltip_AddNormalLine(tooltip, "Left-click: Toggle Homestead Panel")
         end
         GameTooltip_AddNormalLine(tooltip, "Right-click: Pin options")
         tooltip:Show()
@@ -2889,9 +2901,7 @@ local function UpdateProgressBar(collected, total, locked)
 
         -- Green fill for collected items
         State.progressBar:SetStatusBarColor(0.0, 0.7, 0.0)
-        local pct = collected / total
-        local pctDisplay = math.floor(pct * 100)
-        State.progressBarText:SetText(string.format("%d/%d (%d%%)", collected, total, pctDisplay))
+        State.progressBarText:SetText(string.format("Collected: %d/%d", collected, total))
 
         -- Store locked metadata for tooltip and OnUpdate layout
         State.progressBar.lockedValue = locked
@@ -3066,7 +3076,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 
     -- Summary line
     if totalItems > 0 then
-        State.summaryText:SetText(string.format("%d zones | %s items",
+        State.summaryText:SetText(string.format("%d zones | %s decor",
             zoneCount, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     else
         State.summaryText:SetText(string.format("%d zones", zoneCount))
@@ -3174,7 +3184,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
 
     -- Summary line
     if totalItems > 0 then
-        State.summaryText:SetText(string.format("%d continents | %s items",
+        State.summaryText:SetText(string.format("%d continents | %s decor",
             contCount, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     else
         State.summaryText:SetText(string.format("%d continents", contCount))
@@ -3304,15 +3314,13 @@ function MapSidePanel:RefreshSearchResults()
 
     SetListRows(rows)
     if vendorCount > 0 and itemCount > 0 then
-        State.summaryText:SetText(string.format("%d vendor%s, %d item%s found",
-            vendorCount, vendorCount == 1 and "" or "s",
-            itemCount, itemCount == 1 and "" or "s"))
+        State.summaryText:SetText(string.format("%d vendor%s, %d decor found",
+            vendorCount, vendorCount == 1 and "" or "s", itemCount))
     elseif vendorCount > 0 then
         State.summaryText:SetText(string.format("%d vendor%s found",
             vendorCount, vendorCount == 1 and "" or "s"))
     else
-        State.summaryText:SetText(string.format("%d item%s found",
-            itemCount, itemCount == 1 and "" or "s"))
+        State.summaryText:SetText(string.format("%d decor found", itemCount))
     end
 end
 
@@ -3388,7 +3396,7 @@ function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
     end
 
     if totalItems > 0 then
-        State.summaryText:SetText(string.format("%d boss%s | %s items",
+        State.summaryText:SetText(string.format("%d boss%s | %s decor",
             #groups, #groups == 1 and "" or "es",
             FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     elseif #groups > 0 then
@@ -3568,7 +3576,7 @@ function MapSidePanel:RefreshContent()
 
     -- Summary line
     if totalItems > 0 then
-        State.summaryText:SetText(string.format("%d vendors | %s items",
+        State.summaryText:SetText(string.format("%d vendors | %s decor",
             counted, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     elseif counted > 0 then
         State.summaryText:SetText(string.format("%d vendors", counted))
@@ -5004,7 +5012,7 @@ function MapSidePanel:Initialize()
                 rootDescription:CreateTitle("Homestead")
 
                 -- Toggle: Show map pins
-                rootDescription:CreateCheckbox("Show Map Pins", function()
+                local showPinsCheckbox = rootDescription:CreateCheckbox("Show Map Pins", function()
                     return HA.Addon.db.profile.vendorTracer.showMapPins ~= false
                 end, function()
                     local newVal = HA.Addon.db.profile.vendorTracer.showMapPins == false
@@ -5017,6 +5025,7 @@ function MapSidePanel:Initialize()
                         end
                     end
                 end)
+                AttachMenuTooltip(showPinsCheckbox, "Show Map Pins", "Shows vendor locations on the world map.")
 
                 -- Submenu: Pin color
                 local colorSubmenu = rootDescription:CreateButton("Pin Color")
@@ -5047,7 +5056,7 @@ function MapSidePanel:Initialize()
 
                 -- Detach / Attach panel toggle (only when panel is visible or popped out)
                 if State.panelFrame and (State.panelFrame:IsShown() or State.isPoppedOut) then
-                    rootDescription:CreateCheckbox(
+                    local detachCheckbox = rootDescription:CreateCheckbox(
                         State.isPoppedOut and "Attach to Map" or "Detach Panel",
                         function() return State.isPoppedOut end,
                         function()
@@ -5058,6 +5067,11 @@ function MapSidePanel:Initialize()
                             end
                         end
                     )
+                    if State.isPoppedOut then
+                        AttachMenuTooltip(detachCheckbox, "Attach to Map", "Puts the Homestead Panel back on the edge of the world map.")
+                    else
+                        AttachMenuTooltip(detachCheckbox, "Detach Panel", "Moves the Homestead Panel into its own window. Choose Attach to Map to put it back.")
+                    end
                 end
 
                 -- Open full settings

@@ -155,7 +155,7 @@ function VendorTracer:ShowVendorInfo(vendor)
     end
 
     if vendor.seasonal then
-        HA.Addon:Print("  Seasonal:", vendor.seasonal)
+        HA.Addon:Print("  Holiday:", vendor.seasonal)
     end
 
     if vendor.limited then

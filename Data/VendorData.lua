@@ -333,14 +333,14 @@ end
 -- Format cost as a display string with icons (e.g., "10|Tgold|t 50|Tsilver|t" or "500 |Tcurrency|t").
 -- Alternative bundles join with a localized "or"; a bundle with several parts
 -- is parenthesized among alternatives. status defaults to cost.status, then
--- legacy. An unresolved cost renders "Cost unverified" even when cost is nil.
+-- legacy. An unresolved cost renders "Price unknown" even when cost is nil.
 -- formatBundle optionally replaces the per-bundle formatter: it takes a bundle
 -- and returns its text and part count, as FormatCostBundle does.
 function VendorData:FormatCost(cost, status, formatBundle)
     formatBundle = formatBundle or FormatCostBundle
     status = status or (cost and cost.status) or COST_STATUS_LEGACY
     if status == COST_STATUS_UNRESOLVED then
-        return L["Cost unverified"] or "Cost unverified"
+        return L["Price unknown"] or "Price unknown"
     end
     if not cost then return nil end
 
@@ -360,7 +360,7 @@ function VendorData:FormatCost(cost, status, formatBundle)
         end)
         -- An option with nothing to show cannot be told apart from free.
         if not renderable then
-            return L["Cost unverified"] or "Cost unverified"
+            return L["Price unknown"] or "Price unknown"
         end
         text = table.concat(options, " " .. (L["or"] or "or") .. " ")
     else

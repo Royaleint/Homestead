@@ -185,7 +185,7 @@ function HousingAddon:OnInitialize()
         help = "Clear the current map waypoint.",
         handler = function() self:ClearWaypoint() end })
     cmd:Register({ name = "scan",
-        help = "Scan the catalog for owned items.",
+        help = "Scan the catalog for collected decor.",
         handler = function() self:ScanCatalog() end })
     cmd:Register({ name = "vendors",
         help = "Show scanned vendor data.",
@@ -197,7 +197,7 @@ function HousingAddon:OnInitialize()
         help = "Clear the ownership cache.",
         handler = function() self:ClearOwnershipCache() end })
     cmd:Register({ name = "panel",
-        help = "Toggle the detached vendor panel.",
+        help = "Toggle the Homestead Panel in its own window.",
         handler = function()
             if HA.MapSidePanel then
                 HA.MapSidePanel:ToggleDetached()
@@ -418,8 +418,7 @@ function HousingAddon:InitializeMinimapButton()
                 local owned = C_HousingCatalog.GetDecorTotalOwnedCount()
                 local total = C_HousingCatalog.GetDecorMaxOwnedCount()
                 if owned and total and total > 0 then
-                    local percent = math.floor((owned / total) * 100)
-                    tooltip:AddLine(format(L["Collection: %d / %d (%d%%)"] or "Collection: %d / %d (%d%%)", owned, total, percent), 1, 1, 1)
+                    tooltip:AddLine(format(L["Collection: %d/%d"] or "Collection: %d/%d", owned, total), 1, 1, 1)
                 end
             end
 
@@ -452,7 +451,7 @@ function HousingAddon:InitializeMinimapButton()
             if Constants.IsDecorBrowserAvailable() then
                 tooltip:AddLine(L["Right-Click: Open options"] or "|cFFFFFFFFRight-Click:|r Open options")
             else
-                tooltip:AddLine(L["Right-Click: Detach/close vendor panel"] or "|cFFFFFFFFRight-Click:|r Detach/close vendor panel")
+                tooltip:AddLine(L["Right-Click: Toggle Homestead Panel in Own Window"] or "|cFFFFFFFFRight-Click:|r Toggle Homestead Panel in Own Window")
             end
         end,
     })
@@ -633,7 +632,7 @@ end
 -- Show scanned vendor data
 function HousingAddon:ShowScannedVendors()
     if not self.db or not self.db.global then
-        self:Print("SavedVariables not initialized.")
+        self:Print("Homestead's saved data is not loaded yet.")
         return
     end
 
