@@ -987,15 +987,15 @@ function CatalogScanner:ManualScan()
     local L = HA.L or {}
     local started, cooldownRemaining = self:ScanFullCatalog(function(owned, checked)
         HA.Addon:Print("Catalog scan complete.")
-        HA.Addon:Print("  Items checked:", checked)
-        HA.Addon:Print("  Items owned:", owned)
+        HA.Addon:Print("  Decor checked:", checked)
+        HA.Addon:Print("  Decor collected:", owned)
 
         -- Show API total for comparison
         if C_HousingCatalog and C_HousingCatalog.GetDecorTotalOwnedCount then
             local apiTotal = C_HousingCatalog.GetDecorTotalOwnedCount()
-            HA.Addon:Print("  API reports total owned:", apiTotal)
+            HA.Addon:Print("  Game reports total collected:", apiTotal)
             if owned < apiTotal then
-                HA.Addon:Print("  Note: You own items not in the vendor database.")
+                HA.Addon:Print("  Note: You have collected decor that is not in Homestead's vendor data.")
                 HA.Addon:Print("  These may be from quests, achievements, or drops.")
             end
         end

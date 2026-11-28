@@ -18,7 +18,6 @@ local L = HA.L
 L["Used in %d known recipe for decor you haven't collected"] = "Используется в %d известном рецепте для ещё не полученного декора"
 L["Used in %d known recipes for decor you haven't collected"] = "Используется в %d известных рецептах для ещё не полученного декора"
 L["or"] = "или"
-L["Cost unverified"] = "Цена не подтверждена"
 
 -------------------------------------------------------------------------------
 -- UI Labels
@@ -29,36 +28,36 @@ L["Cost unverified"] = "Цена не подтверждена"
 -------------------------------------------------------------------------------
 L["Homestead"] = "Homestead" -- human-translated
 L["Homestead Options"] = "Настройки Homestead"
-L["Overlays"] = "Оверлеи" -- human-translated
+L["Collection Markers"] = "Оверлеи" -- human-translated
 L["Tooltips"] = "Подсказки" -- human-translated
 
-L["Show minimap button"] = "Показывать кнопку у миникарты" -- human-translated
-L["Enable overlays"] = "Включить оверлеи" -- human-translated
-L["Show on bags"] = "Показывать в сумках" -- human-translated
-L["Show on bank"] = "Показывать в банке" -- human-translated
-L["Show on merchant"] = "Показывать у торговцев" -- human-translated
-L["Show on housing catalog"] = "Показывать в каталоге декора" -- human-translated
-L["Icon size"] = "Размер значка" -- human-translated
-L["Icon position"] = "Положение значка" -- human-translated
+L["Show Minimap Button"] = "Показывать кнопку у миникарты" -- human-translated
+L["Show Collection Markers"] = "Включить оверлеи" -- human-translated
+L["Show on Bags"] = "Показывать в сумках" -- human-translated
+L["Show on Bank"] = "Показывать в банке" -- human-translated
+L["Show on Vendors"] = "Показывать у торговцев" -- human-translated
+L["Show on Housing Catalog"] = "Показывать в каталоге декора" -- human-translated
+L["Marker Size"] = "Размер значка" -- human-translated
+L["Marker Position"] = "Положение значка" -- human-translated
 
-L["Enable tooltip additions"] = "Включить добавление подсказок" -- human-translated
-L["Show source information"] = "Показывать источник" -- human-translated
+L["Enable Tooltip Additions"] = "Включить добавление подсказок" -- human-translated
+L["Show Source Information"] = "Показывать источник" -- human-translated
 
-L["Show map pins"] = "Показывать метки на карте" -- human-translated
-L["Show minimap pins"] = "Показывать метки на миникарте" -- human-translated
-L["Use TomTom for waypoints"] = "Использовать TomTom для путевых точек" -- human-translated
+L["Show Map Pins"] = "Показывать метки на карте" -- human-translated
+L["Show Minimap Pins"] = "Показывать метки на миникарте" -- human-translated
+L["Use TomTom for Waypoints"] = "Использовать TomTom для путевых точек" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Minimap Tooltip
 -------------------------------------------------------------------------------
-L["Collection: %d / %d (%d%%)"] = "Коллекция: %d / %d (%d%%)" -- human-translated
+L["Collection: %d/%d"] = "Коллекция: %d/%d" -- human-translated
 L["Vendors nearby: %d"] = "Торговцев рядом: %d" -- human-translated
 L["Vendors scanned: %d"] = "Просканировано торговцев: %d" -- human-translated
 L["Left-Click: Toggle Homestead Hub"] = "|cFFFFFFFFЛКМ:|r Открыть/закрыть Homestead Hub"
 L["Right-Click: Open options"] = "|cFFFFFFFFПКМ:|r Открыть настройки"
 L["Toggle options"] = "Открыть или закрыть параметры"
 L["Left-Click: Toggle options"] = "|cFFFFFFFFЛКМ:|r Открыть настройки" -- human-translated
-L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFПКМ:|r Открепить/закрыть панель торговцев" -- human-translated
+L["Right-Click: Toggle Homestead Panel in Own Window"] = "|cFFFFFFFFПКМ:|r Открепить/закрыть панель торговцев" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -116,41 +115,39 @@ L["All text selected. Press Ctrl+C to copy to clipboard."] = "Текст выд�
 -------------------------------------------------------------------------------
 -- Options - Names
 -------------------------------------------------------------------------------
-L["Show opposite faction vendors"] = "Показывать торговцев противоположной фракции" -- human-translated
-L["Show vendor details in tooltips"] = "Показывать подробности о торговце в подсказках" -- human-translated
-L["Vendor pin item details"] = "Подробности о предметах в метке торговца" -- human-translated
-L["Use native waypoints"] = "Использовать стандартные точки маршрута" -- human-translated
-L["Auto-create waypoint on click"] = "Автоматически создавать точку маршрута при нажатии" -- human-translated
-L["Navigate modifier key"] = "Клавиша-модификатор навигации" -- human-translated
+L["Show Opposite Faction Vendors"] = "Показывать торговцев противоположной фракции" -- human-translated
+L["Show Vendor Details"] = "Показывать подробности о торговце в подсказках" -- human-translated
+L["Show Pin Decor Details"] = "Подробности о предметах в метке торговца" -- human-translated
+L["Use Built-In Waypoints"] = "Использовать стандартные точки маршрута" -- human-translated
+L["Auto-Create Waypoints"] = "Автоматически создавать точку маршрута при нажатии" -- human-translated
+L["Waypoint Key"] = "Клавиша-модификатор навигации" -- human-translated
 
-L["Auto-scan vendors"] = "Автоматическое сканирование торговцев" -- human-translated
+L["Auto-Scan Vendors"] = "Автоматическое сканирование торговцев" -- human-translated
 L["Vendor Visibility"] = "Отображение торговцев" -- human-translated
-L["Show event vendors"] = "Показывать праздничных торговцев" -- human-translated
-L["Hide fully-collected vendor pins"] = "Скрывать метки собранных торговцев" -- human-translated
-L["Fully-collected vendors"] = "Торговцы с собранными коллекциями" -- human-translated
+L["Show Holiday Vendors"] = "Показывать праздничных торговцев" -- human-translated
+L["Show Fully-Collected Vendors"] = "Торговцы с собранными коллекциями" -- human-translated
 L["desc_map_filter_completed_vendors"] = "Снимите галочку, чтобы скрыть метки торговцев, у которых вы полностью получили предметы декора." -- human-translated
 L["Pin Appearance"] = "Внешний вид меток" -- human-translated
-L["Pin color"] = "Цвет метки" -- human-translated
-L["Custom color"] = "Свой цвет" -- human-translated
-L["Show accessibility glow"] = "Показывать подсветку доступности" -- human-translated
-L["Owned item style"] = "Стиль полученных предметов" -- human-translated
-L["Show ownership status"] = "Показывать статус получения" -- human-translated
-L["Show requirements"] = "Показывать требования" -- human-translated
-L["Show all sources"] = "Показывать все источники" -- human-translated
+L["Pin Color"] = "Цвет метки" -- human-translated
+L["Custom Color"] = "Свой цвет" -- human-translated
+L["Show Accessibility Glow"] = "Показывать подсветку доступности" -- human-translated
+L["Collected Decor Style"] = "Стиль полученных предметов" -- human-translated
+L["Show Collection Status"] = "Показывать статус получения" -- human-translated
+L["Show Requirements"] = "Показывать требования" -- human-translated
+L["Show All Sources"] = "Показывать все источники" -- human-translated
 L["Map Pins"] = "Метки на карте" -- human-translated
-L["Show vendor panel on world map"] = "Показывать панель торговцев на карте мира" -- human-translated
-L["Vendor panel source filter"] = "Фильтр источников на панели торговцев" -- human-translated
-L["Integrate with map frame border"] = "Встроить в рамку окна карты" -- human-translated
-L["Zone badges on world map"] = "Значки зон на карте мира" -- human-translated
-L["World map pin size"] = "Размер меток на карте мира" -- human-translated
-L["Show collection counts"] = "Показывать количество в коллекции" -- human-translated
-L["Show elevation arrows"] = "Показывать стрелки высоты" -- human-translated
-L["Minimap nearby-zone pins"] = "Метки соседних зон на миникарте" -- human-translated
-L["Minimap pin size"] = "Размер меток на миникарте" -- human-translated
+L["Show Homestead Panel"] = "Показывать панель торговцев на карте мира" -- human-translated
+L["Decor Source Filter"] = "Фильтр источников на панели торговцев" -- human-translated
+L["Join Panel to Map"] = "Встроить в рамку окна карты" -- human-translated
+L["World Map Zone Badges"] = "Значки зон на карте мира" -- human-translated
+L["World Map Pin Size"] = "Размер меток на карте мира" -- human-translated
+L["Show Collection Counts"] = "Показывать количество в коллекции" -- human-translated
+L["Show Elevation Arrows"] = "Показывать стрелки высоты" -- human-translated
+L["Minimap Nearby-Zone Pins"] = "Метки соседних зон на миникарте" -- human-translated
+L["Minimap Pin Size"] = "Размер меток на миникарте" -- human-translated
 L["Waypoints"] = "Точки маршрута" -- human-translated
-L["Show milestone progress on dashboard"] = "Показывать прогресс этапов на панели" -- human-translated
+L["Show Milestone Progress"] = "Показывать прогресс этапов на панели" -- human-translated
 L["Inventory"] = "Предметы" -- human-translated
-L["Merchant"] = "Торговец" -- human-translated
 L["Housing Catalog"] = "Каталог декора" -- human-translated
 
 -------------------------------------------------------------------------------
@@ -173,7 +170,6 @@ L["desc_tooltip_map_pins_section"] = "Выберите, насколько по�
 L["desc_minimap_waypoints_section"] = "Настройка поведения TomTom и стандартных точек маршрута при нажатии на карту и торговцев." -- human-translated
 L["desc_opposite_faction"] = "Показывать торговцев противоположной фракции с эмблемой их фракции. Полезно для коллекционеров, чтобы видеть всех доступных торговцев." -- human-translated
 L["desc_event_vendors"] = "Показывать метки сезонных праздничных торговцев на карте, когда их событие активно (например, Лунный фестиваль)." -- human-translated
-L["desc_hide_completed_vendor_pins"] = "Скрывать метки на карте и миникарте для торговцев, у которых вы полностью получили предметы декора для дома. Это не влияет на список на панели торговцев." -- human-translated
 L["desc_pin_color"] = "Выберите цвет для меток на карте и миникарте." -- human-translated
 L["desc_custom_color"] = "Выбрать свой базовый цвет для меток на карте" -- human-translated
 L["desc_enable_overlays"] = "Добавляет небольшие значки и подсветку к предметам декора по всей игре, чтобы вы могли с первого взгляда определить, какие из них уже получены. Отключение этой опции скроет все оверлеи Homestead." -- human-translated
@@ -241,13 +237,13 @@ L["Bottom Right"] = "Снизу справа" -- human-translated
 L["Center"] = "По центру" -- human-translated
 
 -- Owned item styles
-L["Green highlight (default)"] = "Зеленая подсветка (по умолчанию)" -- human-translated
+L["Green Highlight"] = "Зеленая подсветка (по умолчанию)" -- human-translated
 L["None"] = "Нет" -- human-translated
 L["Dimmed"] = "Затемнение" -- human-translated
 L["Checkmark"] = "Галочка" -- human-translated
 
 -- Source filter
-L["All sources"] = "Все источники" -- human-translated
+L["All Sources"] = "Все источники" -- human-translated
 L["Vendor"] = "Торговец" -- human-translated
 L["Quest"] = "Задание" -- human-translated
 L["Achievement"] = "Достижение" -- human-translated
@@ -257,15 +253,15 @@ L["Drop"] = "Добыча" -- human-translated
 L["Treasure"] = "Сокровище"
 
 -- Minimap cross-zone mode
-L["Auto (recommended)"] = "Авто (рекомендуется)" -- human-translated
-L["Current zone only"] = "Только текущая зона" -- human-translated
-L["Always show nearby zones"] = "Всегда показывать соседние зоны" -- human-translated
+L["Auto"] = "Авто (рекомендуется)" -- human-translated
+L["Current Zone Only"] = "Только текущая зона" -- human-translated
+L["Nearby Zones"] = "Всегда показывать соседние зоны" -- human-translated
 
 -- Navigate modifier
 L["None (always)"] = "Нет (всегда)" -- human-translated
 
 -- Misc
-L["Approximate map appearance"] = "Примерный вид карты" -- human-translated
+L["Approximate Map Appearance"] = "Примерный вид карты" -- human-translated
 L["Catalog scan is on cooldown. Try again in a few seconds."] = "Сканирование каталога ещё на перезарядке. Повторите попытку через несколько секунд."
 L["A catalog scan is already in progress."] = "Сканирование каталога уже выполняется."
 
@@ -318,13 +314,10 @@ L["%s (%s)"] = "%s (%s)"
 L["Source:"] = "Источник:"
 L["Faction:"] = "Фракция:"
 L["Status:"] = "Статус:"
-L["Owned"] = "Получено"
 L["Available"] = "Доступно"
 L["Locked"] = "Закрыто"
-L["Available Now"] = "Можно получить сейчас"
-L["Blocked"] = "Заблокировано"
 L["Not Collected"] = "Не получено"
-L["Other faction only"] = "Только для другой фракции"
+L["Opposite faction only"] = "Только для другой фракции"
 L["Vendor Price:"] = "Цена у торговца:"
 L["Shop Price:"] = "Цена во внутриигровом магазине:"
 L["Pack:"] = "Набор:"
@@ -338,11 +331,10 @@ L["Unknown Quest"] = "Неизвестное задание"
 L["Unknown Achievement"] = "Неизвестное достижение"
 L["Unknown Recipe"] = "Неизвестный рецепт"
 L["Unknown Event"] = "Неизвестное событие"
-L["Event Vendor"] = "Торговец события"
+L["Holiday Vendor"] = "Торговец события"
 L["Unknown Promotion"] = "Неизвестная акция"
 L["Active Now"] = "Сейчас активно"
 L["Not Active"] = "Не активно"
-L["unverified"] = "не проверено"
 L["Your renown: %s / %s"] = "Ваша известность: %s / %s"
 L["Your standing: %s / %s"] = "Ваша репутация: %s / %s"
 L["Your %s: %s"] = "Ваш навык (%s): %s"
@@ -360,16 +352,16 @@ L["Set waypoint"] = "Поставить метку"
 -- Decor Browser: window and navigation
 L["Homestead Hub"] = "Homestead Hub"
 L["Overview"] = "Обзор"
-L["Catalog"] = "Каталог"
+L["Decor"] = "Каталог"
 L["Back"] = "Назад"
 L["Other Vendors"] = "Прочие торговцы"
-L["%d of %d collected"] = "Собрано: %d из %d"
-L["%d of %d completed"] = "Выполнено: %d из %d"
+L["Collected: %d/%d"] = "Собрано: %d из %d"
+L["Completed: %d/%d"] = "Выполнено: %d из %d"
 L["Reagents"] = "Реагенты"
 L["%d needed"] = "Нужно: %d"
 L["Help"] = "Справка"
-L["Hide collected and other-faction"] = "Без собранного и противоположной фракции"
-L["Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."] = "Скрывает собранный декор, торговцев, у которых больше нечего собирать, и всё, что может получить только противоположная фракция."
+L["Hide Collected and Opposite Faction"] = "Без собранного и противоположной фракции"
+L["Hides decor you have collected, vendors with nothing left to collect, and anything only the opposite faction can get."] = "Скрывает собранный декор, торговцев, у которых больше нечего собирать, и всё, что может получить только противоположная фракция."
 L["Opens a page explaining this window."] = "Открывает страницу с описанием этого окна."
 L["The Homestead Hub opens once Homestead has finished loading."] = "Homestead Hub откроется, когда Homestead закончит загрузку."
 L["Collection"] = "Коллекция"
@@ -381,12 +373,11 @@ L["Source"] = "Источник"
 L["Price"] = "Цена"
 
 -- Decor Browser: shop and item pages
-L["Seasonal: %s"] = "Сезонное: %s"
+L["Holiday: %s"] = "Сезонное: %s"
 L["Rotates with the %s Endeavor"] = "Меняется вместе с предприятием %s"
 L["Rotates with neighborhood Endeavors"] = "Меняется вместе с предприятиями района"
 L["Endeavor"] = "Предприятие"
 L["Not available in combat"] = "Недоступно в бою"
-L["Report a data error"] = "Сообщить об ошибке в данных"
 L["Item: %s (%d)"] = "Предмет: %s (%d)"
 L["Record ID: %s"] = "ID записи: %s"
 L["none"] = "нет"
@@ -402,21 +393,20 @@ L["Open the Homestead Hub, or bind a key under Keybindings > Homestead"] = "От
 L["Minimap button"] = "Кнопка у миникарты"
 L["Open options"] = "Открыть параметры"
 L["Right-click minimap button"] = "Щёлкните правой кнопкой мыши по кнопке мини-карты"
-L["Open the standalone vendor panel"] = "Открыть отдельную панель торговцев"
+L["Open the Homestead Panel in its own window"] = "Открыть отдельную панель торговцев"
 L["Left-click opens the Homestead Hub, right-click opens options"] = "ЛКМ открывает Homestead Hub, ПКМ открывает настройки"
 L["The Homestead Hub is not available yet."] = "Homestead Hub пока недоступен."
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you've collected before you buy."] = "Находите всех торговцев декором на карте и смотрите, что вы уже собрали, прежде чем покупать."
 L["What Homestead Does"] = "Что умеет Homestead"
-L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "Все торговцы декором отмечены на карте мира и миникарте, а значки показывают, сколько предметов вам ещё нужно в каждой зоне."
-L["Map Side Panel"] = "Боковая панель карты"
-L["Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Pop it out as a standalone window with |cFF00FF00/hs panel|r."] = "Нажмите кнопку Homestead на карте мира, чтобы открыть боковую панель со списком торговцев зоны, затем выберите любого торговца, чтобы просмотреть его товары и узнать, чего вам ещё не хватает. Её можно открепить в отдельное окно командой |cFF00FF00/hs panel|r."
+L["Every decor vendor pinned on your world map and minimap, with badges showing how much decor you still need per zone."] = "Все торговцы декором отмечены на карте мира и миникарте, а значки показывают, сколько предметов вам ещё нужно в каждой зоне."
+L["Homestead Panel"] = "Боковая панель карты"
+L["Click the Homestead button on the world map to open the Homestead Panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Open it in its own window with |cFF00FF00/hs panel|r."] = "Нажмите кнопку Homestead на карте мира, чтобы открыть боковую панель со списком торговцев зоны, затем выберите любого торговца, чтобы просмотреть его товары и узнать, чего вам ещё не хватает. Её можно открепить в отдельное окно командой |cFF00FF00/hs panel|r."
 L["Tooltips Expanded"] = "Расширенные подсказки"
-L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "Каждый предмет каталога жилья получает подсказки: откуда он берётся (торговец, задание, достижение, профессия или добыча), сколько стоит и что нужно для его открытия, так что искать информацию вне игры не придётся."
+L["All decor in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what its price is, and what you need to unlock it, so you never have to leave the game to look something up."] = "Каждый предмет каталога жилья получает подсказки: откуда он берётся (торговец, задание, достижение, профессия или добыча), сколько стоит и что нужно для его открытия, так что искать информацию вне игры не придётся."
 L["Key Commands"] = "Основные команды"
 L["Show all commands"] = "Показать все команды"
-L["Found a Problem?"] = "Нашли проблему?"
 L["Report bugs or wrong vendor info on GitHub using the link below."] = "Сообщайте об ошибках и неверных данных о торговцах на GitHub по ссылке ниже."
 L["Report issues (GitHub):"] = "Сообщить о проблеме (GitHub):"
 L["CurseForge:"] = "CurseForge:"
@@ -432,7 +422,7 @@ L["Professions"] = "Профессии"
 L["Drops"] = "Добыча"
 L["Events"] = "События"
 L["Other"] = "Другое"
-L["Location not recorded"] = "Местоположение не записано"
+L["Location unknown"] = "Местоположение не записано"
 L["Requires"] = "Требуется"
 
 -------------------------------------------------------------------------------
@@ -443,11 +433,9 @@ L["Can get now"] = "Можно получить сейчас"
 L["Requires: %s"] = "Требуется: %s"
 L["Not enough: %s"] = "Не хватает: %s"
 L["(%1$s has %2$s)"] = "(у %1$s есть %2$s)"
-L["Price not recorded"] = "Цена не записана"
+L["Price unknown"] = "Цена не записана"
 L["%s only"] = "Только %s"
-L["Not collected"] = "Не получено"
 L["Counting…"] = "Подсчёт…"
-L["Active now"] = "Сейчас активно"
 L["Best to get now"] = "Лучшее для получения сейчас"
 L["Search decor"] = "Поиск декора"
 L["More vendors here"] = "Другие торговцы здесь"
@@ -456,7 +444,7 @@ L["Show what's missing"] = "Показать недостающее"
 L["Sort by name"] = "Сортировать по названию"
 L["Show them"] = "Показать"
 L["Show vendor"] = "Показать торговца"
-L["Report a problem"] = "Сообщить о проблеме"
+L["Report a Problem"] = "Сообщить о проблеме"
 L["Reading your collection. This list fills in when it's ready."] = "Чтение вашей коллекции. Этот список заполнится, когда всё будет готово."
 L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you have collected."] = "Чтение вашей коллекции. Этот список заполнится, когда всё будет готово, потому что порядок Лучшее для получения сейчас зависит от того, что у вас собрано."
 L["Nothing missing"] = "Всё собрано"
@@ -485,12 +473,11 @@ L["%s and %d more"] = "%s и ещё %d"
 L["See all you can get now (%d)"] = "Показать все, что можно получить сейчас (%d)"
 L["Sold here in %s"] = "Продаётся здесь, в %s"
 L["Sold on %s"] = "Продаётся на %s"
-L["%s: active now"] = "%s: сейчас активно"
+L["%s: Active Now"] = "%s: сейчас активно"
 L["Gold"] = "Золото"
 L["Gold only"] = "Только за золото"
 L["Gold only, no requirements left"] = "Только за золото, требований не осталось"
 L["No requirements left"] = "Требований не осталось"
-L["%d of %d"] = "%d из %d"
 L["Reading your collection"] = "Чтение коллекции"
 L["Your Collection Status"] = "Состояние вашей коллекции"
 -- end: Summary
@@ -517,7 +504,6 @@ L["(+%d more)"] = "(+%d ещё)"
 -------------------------------------------------------------------------------
 L["%d decor"] = "Предметов декора: %d"
 L["No decor"] = "Нет декора"
-L["Not active"] = "Не активно"
 L["%d can get now"] = "Можно получить сейчас: %d"
 L["Holiday event"] = "Праздничное событие"
 L["%s only: can't buy on this character"] = "Только %s: этим персонажем купить нельзя"
@@ -546,7 +532,7 @@ L["Collected: it's in your collection"] = "Собрано: он есть в ва
 L["Can get now: this character can get it today"] = "Можно получить сейчас: этот персонаж может получить его сегодня"
 L["Not enough: this character can't pay for it yet"] = "Не хватает: этот персонаж пока не может за него заплатить"
 L["Locked: a requirement isn't met yet"] = "Закрыто: условие ещё не выполнено"
-L["Other faction only: this character's faction can't get it"] = "Только для другой фракции: фракция этого персонажа не может его получить"
+L["Opposite faction only: this character's faction can't get it"] = "Только для другой фракции: фракция этого персонажа не может его получить"
 L["Event only: available while its event runs"] = "Только во время события: доступно, пока идёт событие"
 L["Its event is active now"] = "Событие сейчас активно"
 L["How many you have collected, placed and stored"] = "Сколько у вас собрано, расставлено и на хранении"
@@ -580,7 +566,7 @@ L["Show event"] = "Показать событие"
 L["%s (done)"] = "%s (выполнено)"
 L["%s (not yet)"] = "%s (ещё нет)"
 L["Can't check this requirement yet"] = "Это требование пока нельзя проверить"
-L["Active now: %s"] = "Сейчас активно: %s"
-L["Show 3D preview"] = "Показывать 3D-превью"
+L["Active Now: %s"] = "Сейчас активно: %s"
+L["Show 3D Preview"] = "Показывать 3D-превью"
 L["desc_browser_model3d"] = "Показывает 3D-модель предмета на его странице в Homestead Hub."
 -- end: Item

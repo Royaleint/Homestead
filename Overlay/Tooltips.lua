@@ -672,9 +672,9 @@ end
 -- Each renderer adds the lines for one source type.
 -------------------------------------------------------------------------------
 
-local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _completion, detailed)
+local function RenderVendorSourceLines(tooltip, source, _itemID, _completion, detailed)
     if not detailed then
-        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
@@ -685,7 +685,7 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
         and (subzone .. " (" .. zoneName .. ")")
         or zoneName
 
-    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(vendorName)) .. NotSellingTag(source.data) .. parsedTag,
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(vendorName)) .. NotSellingTag(source.data),
         COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. LabelLine(L["Location:"] or "Location:", WhiteName(locationText)), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 
@@ -722,45 +722,48 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
                 -- "Vendor Price", not "Cost": Blizzard's native item tooltip can carry a
                 -- "Sell Price" (sell-back) line on the same tooltip; an unqualified "Cost"
                 -- label reads as contradicting it.
+                if costStr == (L["Price unknown"] or "Price unknown") then
+                    costStr = L["Unknown"] or "Unknown"
+                end
                 tooltip:AddLine("  " .. LabelLine(L["Vendor Price:"] or "Vendor Price:", WhiteName(costStr)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
             end
         end
     end
 end
 
-local function RenderQuestSourceLines(tooltip, source, parsedTag, _itemID, completion, detailed)
+local function RenderQuestSourceLines(tooltip, source, _itemID, completion, detailed)
     local questName = source.data.questName or L["Unknown Quest"] or "Unknown Quest"
     local questColor = completion and completion.color or "|cFFFFFFFF"
     local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
 
     if not detailed then
         local line = HA.FormatSourceLine(source, function(name) return questColor .. name .. "|r" end)
-        tooltip:AddLine(line .. statusSuffix .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine(line .. statusSuffix, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
-    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Quest"] or "Quest") .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Quest"] or "Quest"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. questColor .. questName .. "|r" .. statusSuffix, 1, 1, 1)
 end
 
-local function RenderAchievementSourceLines(tooltip, source, parsedTag, _itemID, completion, detailed)
+local function RenderAchievementSourceLines(tooltip, source, _itemID, completion, detailed)
     local achievementName = source.data.achievementName or L["Unknown Achievement"] or "Unknown Achievement"
     local nameColor = completion and completion.color or "|cFFFFFFFF"
     local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
 
     if not detailed then
         local line = HA.FormatSourceLine(source, function(name) return nameColor .. name .. "|r" end)
-        tooltip:AddLine(line .. statusSuffix .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine(line .. statusSuffix, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
-    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Achievement"] or "Achievement") .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Achievement"] or "Achievement"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. nameColor .. achievementName .. "|r" .. statusSuffix, 1, 1, 1)
 end
 
-local function RenderProfessionSourceLines(tooltip, source, parsedTag, _itemID, completion, detailed)
+local function RenderProfessionSourceLines(tooltip, source, _itemID, completion, detailed)
     if not detailed then
-        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
@@ -770,11 +773,11 @@ local function RenderProfessionSourceLines(tooltip, source, parsedTag, _itemID, 
     local recipeColor = completion and completion.color or "|cFF808080"
     local recipeSuffix = completion and (completion.color .. completion.suffix .. "|r") or "|cFF808080 (" .. (L["Unknown"] or "Unknown") .. ")|r"
 
-    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(professionDisplay)) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(professionDisplay)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. LabelLine(L["Recipe:"] or "Recipe:", recipeColor .. recipeName .. "|r" .. recipeSuffix), 1, 1, 1)
 end
 
-local function RenderEventSourceLines(tooltip, source, parsedTag, _itemID, _completion, detailed)
+local function RenderEventSourceLines(tooltip, source, _itemID, _completion, detailed)
     local eventName = source.data.event or L["Unknown Event"] or "Unknown Event"
 
     -- Show active/inactive status (omit when unknown/nil)
@@ -790,14 +793,14 @@ local function RenderEventSourceLines(tooltip, source, parsedTag, _itemID, _comp
     end
 
     if not detailed then
-        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName) .. statusText .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName) .. statusText, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
-    local vendorName = source.data.vendorName or L["Event Vendor"] or "Event Vendor"
+    local vendorName = source.data.vendorName or L["Holiday Vendor"] or "Holiday Vendor"
     local currency = source.data.currency
 
-    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(eventName)) .. statusText .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(eventName)) .. statusText, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. LabelLine(L["Vendor:"] or "Vendor:", WhiteName(vendorName)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     if source.data.zone then
         tooltip:AddLine("  " .. LabelLine(L["Zone:"] or "Zone:", WhiteName((Places(source.data)))), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
@@ -807,15 +810,15 @@ local function RenderEventSourceLines(tooltip, source, parsedTag, _itemID, _comp
     end
 end
 
-local function RenderDropSourceLines(tooltip, source, parsedTag, _itemID, _completion, detailed)
+local function RenderDropSourceLines(tooltip, source, _itemID, _completion, detailed)
     if not detailed then
-        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
     local mobName = source.data.mobName or L["Unknown"] or "Unknown"
     local zone = source.data.zone or L["Unknown Location"] or "Unknown Location"
-    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Drop"] or "Drop") .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Drop"] or "Drop"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  |cFFFFFFFF" .. mobName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. LabelLine(L["Zone:"] or "Zone:", WhiteName(zone)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     if source.data.notes then
@@ -823,16 +826,16 @@ local function RenderDropSourceLines(tooltip, source, parsedTag, _itemID, _compl
     end
 end
 
-local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _completion, detailed)
+local function RenderShopSourceLines(tooltip, source, _itemID, _completion, detailed)
     local data = source.data
     local method = data.method or "hearthsteel"
 
     if not detailed then
-        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine(HA.FormatSourceLine(source, WhiteName), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     else
         local isPromo = method == "promo"
         local sourceName = isPromo and (L["Promotion"] or "Promotion") or L["In-Game Shop"] or "In-Game Shop"
-        tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(sourceName)) .. parsedTag,
+        tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(sourceName)),
             COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         if not isPromo and method ~= "unlisted" then
             tooltip:AddLine("  " .. LabelLine(L["Zone:"] or "Zone:", WhiteName(L["N/A"] or "N/A")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
@@ -975,11 +978,10 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed, presen
     for _, source in ipairs(sourcesToRender) do
         local renderer = SOURCE_RENDERERS[source.type]
         if renderer then
-            local parsedTag = source._isParsed and " |cFFAAAAFF(" .. (L["unverified"] or "unverified") .. ")|r" or ""
             local completion = HA.SourceManager.GetCompletionStatus
                 and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
                 or nil
-            renderer(tooltip, source, parsedTag, itemID, completion, detailed)
+            renderer(tooltip, source, itemID, completion, detailed)
             renderedAny = true
             renderedTypes[#renderedTypes + 1] = source.type
             renderedSources[#renderedSources + 1] = source
@@ -1134,18 +1136,18 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
     if (not db or db.showOwned ~= false) and not unreported then
         local statusLabel = L["Status:"] or "Status:"
         if availabilityState == "owned" or isOwned == true then
-            gatedTooltip:AddLine(LabelLine(statusLabel, L["Owned"] or "Owned"), COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Collected"] or "Collected"), COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
         elseif vendorNpcID and availabilityState == "purchasable" then
             gatedTooltip:AddLine(LabelLine(statusLabel, L["Available"] or "Available"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif vendorNpcID and availabilityState == "locked"
                 or availabilityState == "blocked" and presentation and presentation.requirementLocked then
             gatedTooltip:AddLine(LabelLine(statusLabel, L["Locked"] or "Locked"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "otherFaction" then
-            gatedTooltip:AddLine(LabelLine(statusLabel, L["Other faction only"] or "Other faction only"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Opposite faction only"] or "Opposite faction only"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "available" then
-            gatedTooltip:AddLine(LabelLine(statusLabel, L["Available Now"] or "Available Now"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Available"] or "Available"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif availabilityState == "blocked" then
-            gatedTooltip:AddLine(LabelLine(statusLabel, L["Blocked"] or "Blocked"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Locked"] or "Locked"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif isOwned == false then
             gatedTooltip:AddLine(LabelLine(statusLabel, L["Not Collected"] or "Not Collected"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         else

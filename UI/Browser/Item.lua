@@ -50,7 +50,7 @@ local function Report()
     local D, itemID = B.Data, shownID
     local info = D.CatalogInfo(itemID, B.State.catalogMemo)
     local build, buildNumber = GetBuildInfo()
-    HA.OutputWindow:Show(L["Report a data error"], D.ReportText({
+    HA.OutputWindow:Show(L["Report a Problem"], D.ReportText({
         itemID = itemID, name = D.ItemName(itemID, info),
         recordID = D.RecordID(itemID, info), vendors = P.vendors,
         build = build, buildNumber = buildNumber, version = HA.Constants.VERSION,
@@ -78,7 +78,7 @@ end
 local function EventStatus(row, name, active, flagged)
     if active and flagged[name] then return end
     if active then
-        Status(row, L["Active now: %s"]:format(name), "clock", K.badge)
+        Status(row, L["Active Now: %s"]:format(name), "clock", K.badge)
     else
         Status(row, W.StateWords("event", name), "clock")
     end
@@ -88,7 +88,7 @@ local function VendorRow(itemID, b, flagged)
     local D, v = B.Data, b.vendor
     local name = HA.VendorData:GetVendorName(v)
     local row = { status = {}, one = Labeled(L["Vendor:"], name or L["Unknown"], D.Price(itemID, v)) }
-    Status(row, HA.VendorPlaceText(v) or L["Location not recorded"])
+    Status(row, HA.VendorPlaceText(v) or L["Location unknown"])
     local label = D.IsOppositeFaction(v) and HA.BadgeCalculation:FactionLabel(v)
     if label then Status(row, W.StateWords("faction", label), "stop", K.stop) end
     if b.offer == "can" then Status(row, L["Can get now here"], "dot", K.can) end
@@ -206,7 +206,7 @@ local function Describe(itemID)
     end
     if active then
         flagged[active] = true
-        flags[#flags + 1] = { text = L["Active now: %s"]:format(active), glyph = "clock", color = K.badge }
+        flags[#flags + 1] = { text = L["Active Now: %s"]:format(active), glyph = "clock", color = K.badge }
     end
     local bonus = e and e.bonus
     if bonus then

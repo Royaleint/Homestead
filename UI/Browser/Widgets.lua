@@ -191,9 +191,9 @@ function W.TextTip(owner, anchor, text, wrap)
     tip:Show()
 end
 
--- The "Report a problem" link. It is off in combat and says why under the mouse.
+-- The "Report a Problem" link. It is off in combat and says why under the mouse.
 function W.ReportLink(parent, onClick)
-    local b = W.NewLink(parent, L["Report a problem"], onClick, function(self)
+    local b = W.NewLink(parent, L["Report a Problem"], onClick, function(self)
         if not self:IsEnabled() then W.TextTip(self, "ANCHOR_RIGHT", L["Not available in combat"]) end
     end)
     b:SetMotionScriptsWhileDisabled(true)
@@ -416,7 +416,7 @@ function W.BuildRow(row)
     price:SetWordWrap(false)
     local badge = S.Text(top, "meta", "OVERLAY")
     badge:SetTextColor(unpack(K.badge))
-    badge:SetText(L["Active now"])
+    badge:SetText(L["Active Now"])
     local clock = top:CreateTexture(nil, "OVERLAY")
     clock:SetSize(12, 12)
     local star = top:CreateTexture(nil, "OVERLAY")
@@ -1048,7 +1048,7 @@ function W.HeaderExtent(d, width)
 end
 
 function W.FooterText(d)
-    local p, hide = d.parts or { { d.faction, d.factionName } }, L["Hide collected and other-faction"]
+    local p, hide = d.parts or { { d.faction, d.factionName } }, L["Hide Collected and Opposite Faction"]
     if p[2] then
         return L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."]:format(
             d.hidden, hide, d.collected, p[1][1], p[1][2], p[2][1], p[2][2])

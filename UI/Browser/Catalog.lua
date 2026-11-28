@@ -44,10 +44,10 @@ end
 
 local function Words(c)
     local f, on = {}, {}
-    if c.coll ~= c.notColl then f[1] = c.coll and L["Collected"] or L["Not collected"]
+    if c.coll ~= c.notColl then f[1] = c.coll and L["Collected"] or L["Not Collected"]
     elseif not c.coll then f[1] = L["Neither collected nor not collected"] end
     if c.canGet then f[#f + 1] = L["Can get now"] end
-    if c.bonus then f[#f + 1] = L["First-Time Collection Bonus"] end
+    if c.bonus then f[#f + 1] = L["Collection Bonus"] end
     for _, k in ipairs(KEYS) do
         if c.types[k] then on[#on + 1] = TYPE[k] end
     end
@@ -397,7 +397,7 @@ local KEY_STATES = {
     { "can", L["Can get now: this character can get it today"] },
     { "short", L["Not enough: this character can't pay for it yet"] },
     { "locked", L["Locked: a requirement isn't met yet"] },
-    { "faction", L["Other faction only: this character's faction can't get it"] },
+    { "faction", L["Opposite faction only: this character's faction can't get it"] },
     { "event", L["Event only: available while its event runs"] },
 }
 
@@ -416,7 +416,7 @@ local function KeyTip(owner)
         Line(s[2], st.glyph, st.color)
     end
     Corner(L["Top left"])
-    Line(L["First-Time Collection Bonus"], "star", K.gold)
+    Line(L["Collection Bonus"], "star", K.gold)
     Corner(L["Bottom left"])
     Line(L["Its event is active now"], "clock", K.badge)
     Corner(L["Bottom right"])
@@ -455,9 +455,9 @@ local function BuildToolbar(bar)
             end)
         end
         Box(L["Collected"], "coll")
-        Box(L["Not collected"], "notColl")
+        Box(L["Not Collected"], "notColl")
         Box(L["Can get now"], "canGet")
-        Box(L["First-Time Collection Bonus"], "bonus")
+        Box(L["Collection Bonus"], "bonus")
         root:CreateDivider()
         for _, k in ipairs(KEYS) do Box(TYPE[k], k, true) end
         root:CreateDivider()

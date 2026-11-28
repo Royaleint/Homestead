@@ -75,7 +75,7 @@ end
 
 local TREE = {
     Row("overview", L["Overview"], { kind = "overview" }),
-    Row("catalog", L["Catalog"], { kind = "catalog", key = "all" }, CatalogKids),
+    Row("catalog", L["Decor"], { kind = "catalog", key = "all" }, CatalogKids),
     Row("vendors", L["Vendors"], { kind = "allVendors" }, VendorKids),
 }
 for _, t in ipairs({ "achievements", "quests", "professions", "drops", "events", "shop" }) do
@@ -196,7 +196,7 @@ local function Describe(r, last)
     local k, key = r.kind, r.key
     if k == "overview" then return k, nil, L["Overview"] end
     if k == "catalog" then
-        return "catalog:" .. tostring(key), "catalog", key == "all" and (last and L["All decor"] or L["Catalog"]) or S.kind[key]
+        return "catalog:" .. tostring(key), "catalog", key == "all" and (last and L["All decor"] or L["Decor"]) or S.kind[key]
     end
     if k == "vendors" then return "vendors:" .. tostring(key), "vendors", B.Data.ExpansionLabel(key) end
     if k == "allVendors" then return "vendors", "vendors", L["Vendors"] end
@@ -421,10 +421,10 @@ local function BuildHeader(f)
     hide.Text:SetFontObject(S.font.subheader)
     hide.Text:SetTextColor(unpack(K.body))
     hide.Text:SetWordWrap(false)
-    hide.Text:SetText(L["Hide collected and other-faction"])
+    hide.Text:SetText(L["Hide Collected and Opposite Faction"])
     hide:SetScript("OnClick", function(self) hooks.HideNA(self:GetChecked() and true or false) end)
     hide:SetScript("OnEnter", function(self)
-        local why = L["Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."]
+        local why = L["Hides decor you have collected, vendors with nothing left to collect, and anything only the opposite faction can get."]
         W.TextTip(self, "ANCHOR_BOTTOM", self.Text:IsTruncated() and self.Text:GetText() .. "\n" .. why or why, true)
     end)
     hide:SetScript("OnLeave", B.HideTooltip)

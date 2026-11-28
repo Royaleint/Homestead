@@ -48,8 +48,8 @@ end
 local function Why(e)
     local b, r, where = CG.Best(e), {}, Facts.Here()
     local near = Facts.Nearness(b.mapID, where)
-    if b.event then r[#r + 1] = L["%s: active now"]:format(b.event) end
-    if e.bonus then r[#r + 1] = L["First-Time Collection Bonus"] end
+    if b.event then r[#r + 1] = L["%s: Active Now"]:format(b.event) end
+    if e.bonus then r[#r + 1] = L["Collection Bonus"] end
     local continent = near == 2 and HA.VendorFilter.GetMapName(where.continent)
     if near == 1 and where.name then
         r[#r + 1] = L["Sold here in %s"]:format(where.name)
@@ -195,7 +195,7 @@ local function BuildSource(parent)
         b.ring:SetAtlas(S.atlas.iconRing)
         b.ring:SetPoint("CENTER", b.icon)
     end
-    b.pct = Text(b, "body")
+    b.pct = Text(b, "body") -- stays empty; it only anchors the label's right edge
     b.pct:SetJustifyH("RIGHT")
     b.label = Text(b, "bodyGold")
     b.label:SetPoint("RIGHT", b.pct, "LEFT", -SP.xs, 0)
@@ -296,15 +296,14 @@ local function BarGroups(walk)
     return out
 end
 
-local function SetCount(b, bar, tint)
+local function SetCount(b, bar, tint, countFormat)
     local ready = bar[2] ~= nil
     b.label:SetText(bar[1])
-    b.count:SetText(ready and ("%d / %d"):format(bar[2], bar[3]) or W.StateWords("counting"))
+    b.count:SetText(ready and countFormat:format(bar[2], bar[3]) or W.StateWords("counting"))
     b.track:SetStatusBarColor(unpack(tint))
     b.track:SetMinMaxValues(0, math.max(bar[3] or 1, 1))
     b.track:SetValue(bar[2] or 0)
     b.route = bar[4]
-    return ready
 end
 
 local function Place(b, x, y, w, h)
@@ -334,7 +333,7 @@ local function DrawBars(w)
     for i = 2, #list do bars[i] = bars[i] or BuildSource(cards) end
 
     local all = bars[1]
-    SetCount(all, list[1], K.gold)
+    SetCount(all, list[1], K.gold, "%d/%d")
     local overallW, overallH = math.min(w, MEASURE_W), W.TextHeight("subheader") + S.bar.big + SP.xs + 2 * SP.s
     Place(all, (w - overallW) / 2, 0, overallW, overallH)
 
@@ -355,7 +354,7 @@ local function DrawBars(w)
         local inLine = math.min(n, k - line * n)
         local x0 = (w - inLine * cw - (inLine - 1) * SP.s) / 2
         Place(b, x0 + col * (cw + SP.s), top + line * (cardH + SP.s), cw, cardH)
-        local ready = SetCount(b, bar, bar[6] or K.barFill)
+        SetCount(b, bar, bar[6] or K.barFill, L["Collected: %d/%d"])
         if b.well then b.well:SetSize(wellW, wellH) end
         if b.ring then b.ring:SetSize(ringW, ringH) end
         b.icon:SetAtlas(bar[5])
@@ -363,7 +362,6 @@ local function DrawBars(w)
         local textX = SP.xs + slot + SP.s
         local textTop = (cardH - textH) / 2
         b.pct:SetPoint("TOPRIGHT", -SP.xs, -textTop)
-        b.pct:SetText(ready and ("%d%%"):format(math.floor(100 * bar[2] / math.max(bar[3], 1))) or "")
         b.label:SetPoint("TOPLEFT", textX, -textTop)
         local trackY = -(textTop + W.TextHeight("body") + S.bar.gap)
         b.track:SetPoint("TOPLEFT", textX, trackY)

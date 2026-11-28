@@ -226,13 +226,13 @@ local function CreateWelcomeFrame()
     local bullet1 = AddFeatureRow(content, sec1Header,
         { atlas = "housing-decor-vendor_32" },
         L["Map Pins"],
-        L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."],
+        L["Every decor vendor pinned on your world map and minimap, with badges showing how much decor you still need per zone."],
         8)
 
     local bullet2 = AddFeatureRow(content, bullet1,
         HA.Constants.Icons.MINIMAP,
-        L["Map Side Panel"],
-        L["Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Pop it out as a standalone window with |cFF00FF00/hs panel|r."],
+        L["Homestead Panel"],
+        L["Click the Homestead button on the world map to open the Homestead Panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Open it in its own window with |cFF00FF00/hs panel|r."],
         FEATURE_GAP)
 
     -- Bullet 3: Tooltips Expanded. Custom layout to accommodate right-floated mock tooltip.
@@ -263,7 +263,7 @@ local function CreateWelcomeFrame()
     b3Body:SetWidth(b3TextWidth)
     b3Body:SetJustifyH("LEFT")
     b3Body:SetSpacing(2)
-    b3Body:SetText(L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."])
+    b3Body:SetText(L["All decor in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what its price is, and what you need to unlock it, so you never have to leave the game to look something up."])
 
     local b3HeadingH = b3Heading:GetStringHeight()
     local b3BodyH = b3Body:GetStringHeight()
@@ -292,17 +292,17 @@ local function CreateWelcomeFrame()
     local cmd3 = browserOn
         and AddCommand(content, cmd2, L["Minimap button"],
             L["Left-click opens the Homestead Hub, right-click opens options"])
-        or AddCommand(content, cmd2, L["Right-click minimap button"], L["Open the standalone vendor panel"])
+        or AddCommand(content, cmd2, L["Right-click minimap button"], L["Open the Homestead Panel in its own window"])
 
     -- =====================================================================
-    -- SECTION 3: Found a Problem?
+    -- SECTION 3: Report a Problem
     -- =====================================================================
 
     local sec3Header = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     sec3Header:SetPoint("TOP", cmd3, "BOTTOM", 0, -(SECTION_GAP + 10))
     sec3Header:SetWidth(CONTENT_WIDTH)
     sec3Header:SetJustifyH("CENTER")
-    sec3Header:SetText("|cFFFFD100" .. L["Found a Problem?"] .. "|r")
+    sec3Header:SetText("|cFFFFD100" .. L["Report a Problem"] .. "|r")
 
     local sec3Body = AddParagraph(content, sec3Header,
         L["Report bugs or wrong vendor info on GitHub using the link below."],

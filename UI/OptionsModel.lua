@@ -157,14 +157,14 @@ local iconAnchorValues = {
 }
 
 local ownedItemStyleValues = {
-    { key = "default", label = L["Green highlight (default)"] },
+    { key = "default", label = L["Green Highlight"] },
     { key = "none", label = L["None"] },
     { key = "dim", label = L["Dimmed"] },
     { key = "checkmark", label = L["Checkmark"] },
 }
 
 local mapSidePanelSourceFilterValues = {
-    { key = "all", label = L["All sources"] },
+    { key = "all", label = L["All Sources"] },
     { key = "vendor", label = L["Vendor"] },
     { key = "quest", label = L["Quest"] },
     { key = "achievement", label = L["Achievement"] },
@@ -174,9 +174,9 @@ local mapSidePanelSourceFilterValues = {
 }
 
 local minimapCrossZoneModeValues = {
-    { key = "auto", label = L["Auto (recommended)"] },
-    { key = "off", label = L["Current zone only"] },
-    { key = "on", label = L["Always show nearby zones"] },
+    { key = "auto", label = L["Auto"] },
+    { key = "off", label = L["Current Zone Only"] },
+    { key = "on", label = L["Nearby Zones"] },
 }
 
 local navigateModifierValues = {
@@ -195,7 +195,7 @@ local browserRows = {
     {
         key = "browserModel3D",
         type = "checkbox",
-        label = L["Show 3D preview"],
+        label = L["Show 3D Preview"],
         tooltip = L["desc_browser_model3d"],
         get = function() return HA.DecorBrowser.Model3D() end,
         set = function(value) HA.DecorBrowser.SetModel3D(value) end,
@@ -214,7 +214,7 @@ OptionsModel.sections = {
             {
                 key = "minimapButton",
                 type = "checkbox",
-                label = L["Show minimap button"],
+                label = L["Show Minimap Button"],
                 tooltip = L["desc_minimap_button"],
                 get = function()
                     local minimap = GetMinimap()
@@ -237,7 +237,7 @@ OptionsModel.sections = {
             {
                 key = "vendorScanning",
                 type = "checkbox",
-                label = L["Auto-scan vendors"],
+                label = L["Auto-Scan Vendors"],
                 tooltip = L["desc_auto_scan_vendors"],
                 get = function()
                     local vendorScanning = GetVendorScanning()
@@ -259,7 +259,7 @@ OptionsModel.sections = {
             {
                 key = "showOppositeFaction",
                 type = "checkbox",
-                label = L["Show opposite faction vendors"],
+                label = L["Show Opposite Faction Vendors"],
                 tooltip = L["desc_opposite_faction"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -276,7 +276,7 @@ OptionsModel.sections = {
             {
                 key = "showEventVendors",
                 type = "checkbox",
-                label = L["Show event vendors"],
+                label = L["Show Holiday Vendors"],
                 tooltip = L["desc_event_vendors"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -293,16 +293,16 @@ OptionsModel.sections = {
             {
                 key = "hideCompletedVendorPins",
                 type = "checkbox",
-                label = L["Hide fully-collected vendor pins"],
-                tooltip = L["desc_hide_completed_vendor_pins"],
+                label = L["Show Fully-Collected Vendors"],
+                tooltip = L["desc_map_filter_completed_vendors"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
-                    return vendorTracer and vendorTracer.hideCompletedVendorPins
+                    return vendorTracer and not vendorTracer.hideCompletedVendorPins
                 end,
                 set = function(value)
                     local vendorTracer = GetVendorTracer()
                     if not vendorTracer then return end
-                    vendorTracer.hideCompletedVendorPins = value
+                    vendorTracer.hideCompletedVendorPins = not value
                     RefreshPinsAndBadges()
                     RequestMinimapRefresh("option_hideCompletedVendorPins")
                 end,
@@ -316,7 +316,7 @@ OptionsModel.sections = {
             {
                 key = "pinColorPreset",
                 type = "dropdown",
-                label = L["Pin color"],
+                label = L["Pin Color"],
                 tooltip = L["desc_pin_color"],
                 values = pinColorValues,
                 get = function()
@@ -333,7 +333,7 @@ OptionsModel.sections = {
             {
                 key = "pinColorCustom",
                 type = "color",
-                label = L["Custom color"],
+                label = L["Custom Color"],
                 tooltip = L["desc_custom_color"],
                 hidden = IsPinColorCustomHidden,
                 get = function()
@@ -352,19 +352,19 @@ OptionsModel.sections = {
             {
                 key = "pinColorPreview",
                 type = "pinPreview",
-                label = L["Approximate map appearance"],
+                label = L["Approximate Map Appearance"],
             },
         },
     },
     {
         key = "overlays",
-        label = L["Overlays"],
+        label = L["Collection Markers"],
         description = L["desc_options_overlays"],
         rows = {
             {
                 key = "enabled",
                 type = "checkbox",
-                label = L["Enable overlays"],
+                label = L["Show Collection Markers"],
                 tooltip = L["desc_enable_overlays"],
                 get = function()
                     local overlay = GetOverlay()
@@ -380,7 +380,7 @@ OptionsModel.sections = {
             {
                 key = "iconSize",
                 type = "slider",
-                label = L["Icon size"],
+                label = L["Marker Size"],
                 tooltip = L["desc_icon_size"],
                 min = 8,
                 max = 32,
@@ -399,7 +399,7 @@ OptionsModel.sections = {
             {
                 key = "iconAnchor",
                 type = "dropdown",
-                label = L["Icon position"],
+                label = L["Marker Position"],
                 tooltip = L["desc_icon_position"],
                 values = iconAnchorValues,
                 get = function()
@@ -422,7 +422,7 @@ OptionsModel.sections = {
             {
                 key = "showOnBags",
                 type = "checkbox",
-                label = L["Show on bags"],
+                label = L["Show on Bags"],
                 tooltip = L["desc_show_on_bags"],
                 get = function()
                     local overlay = GetOverlay()
@@ -438,7 +438,7 @@ OptionsModel.sections = {
             {
                 key = "showOnBank",
                 type = "checkbox",
-                label = L["Show on bank"],
+                label = L["Show on Bank"],
                 tooltip = L["desc_show_on_bank"],
                 get = function()
                     local overlay = GetOverlay()
@@ -454,13 +454,13 @@ OptionsModel.sections = {
             {
                 key = "merchantHeader",
                 type = "header",
-                label = L["Merchant"],
+                label = L["Vendor"],
                 description = L["desc_overlay_merchant_section"],
             },
             {
                 key = "showOnMerchant",
                 type = "checkbox",
-                label = L["Show on merchant"],
+                label = L["Show on Vendors"],
                 tooltip = L["desc_show_on_merchant"],
                 get = function()
                     local overlay = GetOverlay()
@@ -482,7 +482,7 @@ OptionsModel.sections = {
             {
                 key = "showOnHousingCatalog",
                 type = "checkbox",
-                label = L["Show on housing catalog"],
+                label = L["Show on Housing Catalog"],
                 tooltip = L["desc_show_on_housing_catalog"],
                 get = function()
                     local overlay = GetOverlay()
@@ -498,7 +498,7 @@ OptionsModel.sections = {
             {
                 key = "showAccessibilityGlow",
                 type = "checkbox",
-                label = L["Show accessibility glow"],
+                label = L["Show Accessibility Glow"],
                 tooltip = L["desc_accessibility_glow"],
                 get = function()
                     local overlay = GetOverlay()
@@ -514,7 +514,7 @@ OptionsModel.sections = {
             {
                 key = "ownedItemStyle",
                 type = "dropdown",
-                label = L["Owned item style"],
+                label = L["Collected Decor Style"],
                 tooltip = L["desc_owned_item_style"],
                 values = ownedItemStyleValues,
                 get = function()
@@ -538,7 +538,7 @@ OptionsModel.sections = {
             {
                 key = "enabled",
                 type = "checkbox",
-                label = L["Enable tooltip additions"],
+                label = L["Enable Tooltip Additions"],
                 tooltip = L["desc_enable_tooltips"],
                 get = function()
                     local tooltip = GetTooltip()
@@ -554,7 +554,7 @@ OptionsModel.sections = {
             {
                 key = "showOwned",
                 type = "checkbox",
-                label = L["Show ownership status"],
+                label = L["Show Collection Status"],
                 tooltip = L["desc_show_ownership"],
                 get = function()
                     local tooltip = GetTooltip()
@@ -570,7 +570,7 @@ OptionsModel.sections = {
             {
                 key = "showSource",
                 type = "checkbox",
-                label = L["Show source information"],
+                label = L["Show Source Information"],
                 tooltip = L["desc_show_source"],
                 get = function()
                     local tooltip = GetTooltip()
@@ -586,7 +586,7 @@ OptionsModel.sections = {
             {
                 key = "showRequirements",
                 type = "checkbox",
-                label = L["Show requirements"],
+                label = L["Show Requirements"],
                 tooltip = L["desc_show_requirements"],
                 get = function()
                     local tooltip = GetTooltip()
@@ -602,7 +602,7 @@ OptionsModel.sections = {
             {
                 key = "showAllSources",
                 type = "checkbox",
-                label = L["Show all sources"],
+                label = L["Show All Sources"],
                 tooltip = L["desc_show_all_sources"],
                 get = function()
                     local tooltip = GetTooltip()
@@ -624,7 +624,7 @@ OptionsModel.sections = {
             {
                 key = "showVendorDetails",
                 type = "checkbox",
-                label = L["Show vendor details in tooltips"],
+                label = L["Show Vendor Details"],
                 tooltip = L["desc_vendor_details"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -640,7 +640,7 @@ OptionsModel.sections = {
             {
                 key = "showVendorPinItemDetails",
                 type = "checkbox",
-                label = L["Vendor pin item details"],
+                label = L["Show Pin Decor Details"],
                 tooltip = L["desc_vendor_pin_item_details"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -663,7 +663,7 @@ OptionsModel.sections = {
             {
                 key = "showMapPins",
                 type = "checkbox",
-                label = L["Show map pins"],
+                label = L["Show Map Pins"],
                 tooltip = L["desc_show_map_pins"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -683,7 +683,7 @@ OptionsModel.sections = {
             {
                 key = "showMapSidePanel",
                 type = "checkbox",
-                label = L["Show vendor panel on world map"],
+                label = L["Show Homestead Panel"],
                 tooltip = L["desc_show_map_side_panel"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -703,7 +703,7 @@ OptionsModel.sections = {
             {
                 key = "mapSidePanelSourceFilter",
                 type = "dropdown",
-                label = L["Vendor panel source filter"],
+                label = L["Decor Source Filter"],
                 tooltip = L["desc_source_filter"],
                 values = mapSidePanelSourceFilterValues,
                 get = function()
@@ -724,7 +724,7 @@ OptionsModel.sections = {
             {
                 key = "integrateMapBorder",
                 type = "checkbox",
-                label = L["Integrate with map frame border"],
+                label = L["Join Panel to Map"],
                 tooltip = L["desc_integrate_map_border"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -746,7 +746,7 @@ OptionsModel.sections = {
             {
                 key = "worldMapZoneBadges",
                 type = "checkbox",
-                label = L["Zone badges on world map"],
+                label = L["World Map Zone Badges"],
                 tooltip = L["desc_zone_badges"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -762,7 +762,7 @@ OptionsModel.sections = {
             {
                 key = "pinIconSize",
                 type = "slider",
-                label = L["World map pin size"],
+                label = L["World Map Pin Size"],
                 tooltip = L["desc_world_pin_size"],
                 min = 8,
                 max = 18,
@@ -784,7 +784,7 @@ OptionsModel.sections = {
             {
                 key = "showPinCounts",
                 type = "checkbox",
-                label = L["Show collection counts"],
+                label = L["Show Collection Counts"],
                 tooltip = L["desc_show_pin_counts"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -807,7 +807,7 @@ OptionsModel.sections = {
             {
                 key = "showMinimapPins",
                 type = "checkbox",
-                label = L["Show minimap pins"],
+                label = L["Show Minimap Pins"],
                 tooltip = L["desc_show_minimap_pins"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -827,7 +827,7 @@ OptionsModel.sections = {
             {
                 key = "showElevationArrows",
                 type = "checkbox",
-                label = L["Show elevation arrows"],
+                label = L["Show Elevation Arrows"],
                 tooltip = L["desc_elevation_arrows"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -843,7 +843,7 @@ OptionsModel.sections = {
             {
                 key = "minimapCrossZoneMode",
                 type = "dropdown",
-                label = L["Minimap nearby-zone pins"],
+                label = L["Minimap Nearby-Zone Pins"],
                 tooltip = L["desc_cross_zone_mode"],
                 values = minimapCrossZoneModeValues,
                 get = function()
@@ -860,7 +860,7 @@ OptionsModel.sections = {
             {
                 key = "minimapIconSize",
                 type = "slider",
-                label = L["Minimap pin size"],
+                label = L["Minimap Pin Size"],
                 tooltip = L["desc_minimap_pin_size"],
                 min = 8,
                 max = 24,
@@ -894,7 +894,7 @@ OptionsModel.sections = {
             {
                 key = "useTomTom",
                 type = "checkbox",
-                label = L["Use TomTom for waypoints"],
+                label = L["Use TomTom for Waypoints"],
                 tooltip = L["desc_use_tomtom"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -910,7 +910,7 @@ OptionsModel.sections = {
             {
                 key = "useNativeWaypoints",
                 type = "checkbox",
-                label = L["Use native waypoints"],
+                label = L["Use Built-In Waypoints"],
                 tooltip = L["desc_use_native_waypoints"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -926,7 +926,7 @@ OptionsModel.sections = {
             {
                 key = "autoWaypoint",
                 type = "checkbox",
-                label = L["Auto-create waypoint on click"],
+                label = L["Auto-Create Waypoints"],
                 tooltip = L["desc_auto_waypoint"],
                 get = function()
                     local vendorTracer = GetVendorTracer()
@@ -942,7 +942,7 @@ OptionsModel.sections = {
             {
                 key = "navigateModifier",
                 type = "dropdown",
-                label = L["Navigate modifier key"],
+                label = L["Waypoint Key"],
                 tooltip = L["desc_navigate_modifier"],
                 values = navigateModifierValues,
                 get = function()
@@ -966,7 +966,7 @@ OptionsModel.sections = {
             {
                 key = "showMilestoneXP",
                 type = "checkbox",
-                label = L["Show milestone progress on dashboard"],
+                label = L["Show Milestone Progress"],
                 tooltip = L["desc_milestone_xp"],
                 get = function()
                     local endeavors = GetEndeavors()

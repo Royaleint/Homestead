@@ -142,7 +142,7 @@ local function UpdateMilestoneDisplayImpl()
                 if isOwned then owned = owned + 1 end
             end
         end
-        ownershipText:SetFormattedText("%s: %d / %d items owned", vendor.name, owned, total)
+        ownershipText:SetFormattedText("%s: Collected %d/%d", vendor.name, owned, total)
         ownershipText:Show()
     else
         if ownershipText then ownershipText:Hide() end

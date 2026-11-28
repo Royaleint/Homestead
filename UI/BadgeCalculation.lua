@@ -742,12 +742,10 @@ end
 
 -- Format the tooltip summary line: "Collected: X/Y | Locked: Z".
 -- Adds the line directly to the given tooltip. Shared by all vendor/zone tooltips.
--- Optional unverified count shown on a second line when > 0.
-function BadgeCalculation.AddSummaryLine(tooltip, collected, total, locked, unverified)
+function BadgeCalculation.AddSummaryLine(tooltip, collected, total, locked)
     collected = collected or 0
     total = total or 0
     locked = locked or 0
-    unverified = unverified or 0
 
     if total == 0 then return end
 
@@ -761,10 +759,6 @@ function BadgeCalculation.AddSummaryLine(tooltip, collected, total, locked, unve
             "|cFF00FF00Collected|r: %d/%d",
             collected, total
         ), 1, 1, 1)
-    end
-
-    if unverified > 0 then
-        tooltip:AddLine(string.format("(%d unverified)", unverified), 1.0, 0.82, 0.0)
     end
 end
 
@@ -908,8 +902,8 @@ end
 BadgeCalculation.COUNT_COLORS = { number = { 1, 1, 1 }, words = { 0.5, 0.5, 0.5 } }
 
 BadgeCalculation.ROW_WORDS = {
-    faction = L["%s only"], idle = L["Not active"], counting = L["Counting…"],
-    allDone = "", some = L["%d can get now"], live = L["Active now"],
+    faction = L["%s only"], idle = L["Not Active"], counting = L["Counting…"],
+    allDone = "", some = L["%d can get now"], live = L["Active Now"],
 }
 
 local FACTION_NAMES = { Alliance = L["Alliance"], Horde = L["Horde"] }
