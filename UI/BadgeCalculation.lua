@@ -522,6 +522,42 @@ function BadgeCalculation:UnreadVendorStats(vendor, sourceFilter)
     return stats
 end
 
+-- Sorts ids in place into the vendor window's order: wares this character's scan placed first, then wares with a
+-- shipped slot, then the rest as listed.
+local function VendorOrder(vendor, ids)
+    local VD = HA.VendorData
+    if not (ids and ids[2] and vendor and vendor.npcID and VD and VD.GetOffers and VD.GetScannedVendorRecord) then
+        return ids
+    end
+    local scanned, record = {}, VD:GetScannedVendorRecord(vendor)
+    for _, row in ipairs(record and record.items or EMPTY_ITEM_IDS) do
+        local id, slot = row.itemID, row.merchantSlot
+        if id and slot and (not scanned[id] or slot < scanned[id]) then scanned[id] = slot end
+    end
+    local offers = VD:GetOffers(vendor.npcID) or EMPTY_ITEM_IDS
+    local keys = {}
+    for i, id in ipairs(ids) do
+        local offer, group, slot = offers[id], 3, 0
+        if scanned[id] then
+            group, slot = 1, scanned[id]
+        elseif offer and offer.merchantSlot then
+            group, slot = 2, offer.merchantSlot
+        end
+        keys[i] = { group, slot, i, id }
+    end
+    table.sort(keys, function(a, b)
+        if a[1] ~= b[1] then return a[1] < b[1] end
+        if a[2] ~= b[2] then return a[2] < b[2] end
+        return a[3] < b[3]
+    end)
+    for i, key in ipairs(keys) do ids[i] = key[4] end
+    return ids
+end
+
+function BadgeCalculation:VendorOrder(vendor, ids)
+    return VendorOrder(vendor, ids)
+end
+
 -- The wares that count toward a vendor's collected and total under the "all" filter, in the vendor's
 -- order: the wares the catalog store's rule counts (CatalogStore:LeftOutReason, the pins' rule read without the
 -- full item presentation). Second, the wares left out, in the same order: { promotion = unowned promotion
@@ -541,6 +577,7 @@ function BadgeCalculation:GetCountedItemIDs(vendor)
     local itemIDs = HA.VendorData:GetMergedItemIDs(vendor) or EMPTY_ITEM_IDS
     local left = { promotion = {}, unknown = {} }
     counted = HA.PerformanceTrace:Measure("vendor_counted_wares", #itemIDs, function()
+        VendorOrder(vendor, itemIDs)
         local out = {}
         for _, itemID in ipairs(itemIDs) do
             local reason = store:LeftOutReason(itemID, vendor.npcID)
