@@ -26,6 +26,7 @@ local DATA_EVENTS = {
     "OWNERSHIP_UPDATED", "SOURCE_CACHES_INVALIDATED", "ACTIVE_HOLIDAYS_CHANGED",
     "ACTIVE_ENDEAVOR_CHANGED", "HS_CATALOG_TRUE_WARM", "HS_CATALOG_READ_STATE",
 }
+B.DATA_EVENTS = DATA_EVENTS
 local GAME_EVENTS = {
     "GET_ITEM_INFO_RECEIVED", "PORTRAITS_UPDATED", "COLOR_OVERRIDE_UPDATED", "COLOR_OVERRIDES_RESET",
     "ZONE_CHANGED_NEW_AREA", "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED",
@@ -68,6 +69,7 @@ end
 local function Shown()
     return Win.frame ~= nil and Win.frame:IsVisible() and not Win.closing
 end
+B.Shown = Shown
 
 function B.Walk()
     return B.CanGet.Walk()
@@ -238,7 +240,7 @@ function B.SetHideNA(on)
     if page then page:Refresh("hide") end
 end
 
--- Pending refresh: stale (walk out of date: true, or the items an ownership update named), names (item or creature names arrived), wallet (money, a currency or a bag
+-- Pending refresh: stale (data changed: ask for a check), names (item or creature names arrived), wallet (money, a currency or a bag
 -- changed: judge again, no walk), walletPaint (account data arrived: draw again), plain (any other request),
 -- prewarm (a data change or a name may ask for the vendor-count fill; a fill-only repaint must not, or fill and
 -- repaint loop).
@@ -279,17 +281,23 @@ function B.SetModel3D(on)
     if Shown() and curRoute then Repaint("paint") end
 end
 
--- The walk runs only here, at most once per coalesced refresh, in combat too. A wallet change judges the
--- offers again and draws only if one changed.
+-- A finished check draws the page again with what it found.
+function B.RepaintData()
+    if Shown() and curRoute then Trace("browser_refresh", "data", Repaint, "data") end
+end
+
+-- A data change asks for a check here, at most once per coalesced refresh, in combat too; pages show Counting
+-- until the check publishes, except that the Catalog keeps tiles it drew from the last finished check. A wallet
+-- change judges the offers again and draws only if one changed.
 local function RunRefresh()
     local wasStale, hadNames, allowed, moved, account, other = stale, names, prewarm, wallet, walletPaint, plain
     timer = nil
     stale, names, wallet, walletPaint, plain, prewarm = false, false, false, false, false, false
     if not (Shown() and curRoute) then return end
-    if wasStale then B.CanGet.Plan(wasStale ~= true) B.Data.InvalidateMemos() end
+    if wasStale then B.CanGet.Recheck() end
     if hadNames then B.CanGet.RefreshNames() end
     local reason = wasStale and "data" or hadNames and "names" or nil
-    local changed = moved and wasStale ~= true and Trace("browser_rejudge", nil, B.CanGet.Rejudge)
+    local changed = moved and not B.CanGet.Building() and Trace("browser_rejudge", nil, B.CanGet.Rejudge)
     reason = reason or (changed or account) and "wallet" or other and "stats"
     if not reason then return end
     State.noPrewarm = not allowed
@@ -298,18 +306,19 @@ local function RunRefresh()
 end
 
 -- Coalesces bursts into one refresh half a second later, if shown. fromStatsFill must not ask for another
--- fill; newData marks the walk stale; fromWallet is a wallet event's request, which draws only for a change.
+-- fill; newData asks for a check; fromWallet is a wallet event's request, which draws only for a change.
 function B.RequestRefresh(fromStatsFill, newData, fromWallet)
     if not fromStatsFill then prewarm = true end
     if not fromWallet then plain = true end
-    if newData then stale = stale == true or newData end
+    if newData then stale = true end
     if timer then return end
     timer = C_Timer.NewTimer(REFRESH_DELAY, RunRefresh)
 end
 
 local function BuildCallbacks()
     callbacks = {
-        data = function(own) if Shown() then B.RequestRefresh(false, type(own) == "table" and own or true) end end,
+        -- What changed is the always-on listener's to record (CanGet); this only asks for the check.
+        data = function() if Shown() then B.RequestRefresh(false, true) end end,
         scan = function(record)
             if Shown() and HA.BadgeCalculation:ScanMatters(record) then
                 -- A scan adds sources without SOURCE_CACHES_INVALIDATED.
@@ -377,9 +386,18 @@ local function OnShow()
     Win.CheckTextScale()
     Win.Fit()
     if opening then return end
-    -- Back from Alt+Z: nothing was heard while hidden.
+    -- Back from Alt+Z, with or without an OnHide before it: the generation moves so a cached page and a running
+    -- check are not trusted, and the open's reads are made again before the one draw.
     SetCombat(InCombatLockdown())
-    B.RequestRefresh(false, true)
+    State.generation = State.generation + 1
+    ClearPending()
+    B.Data.WipeCatalogMemo()
+    B.CanGet.AccountData()
+    if not B.CanGet.Recheck() then
+        Trace("browser_rejudge", nil, B.CanGet.Rejudge)
+        B.CanGet.RefreshNames()
+    end
+    if curRoute then Trace("browser_refresh", "return", Repaint, "return") end
 end
 
 local function OnHide()
@@ -392,6 +410,7 @@ local function OnHide()
     asked = false
     EventRegistry:UnregisterCallback(TEXT_SCALE_EVENT, textScaleOwner)
     ClearPending()
+    B.CanGet.CancelJob()
     for _, page in pairs(kindPage) do
         if page.Closed then page:Closed() end
     end
@@ -435,7 +454,6 @@ end
 
 local function OpenNow()
     if not Win.frame then Build() end
-    B.Data.InvalidateMemos()
     B.Facts.Here()
     SetCombat(InCombatLockdown())
     Win.hideNA:SetChecked(State.hideNA)
@@ -445,6 +463,18 @@ local function OpenNow()
     wipe(history)
     if curRoute then Current():Hide() frames[curRoute.kind]:Hide() end
     curRoute = nil
+    -- A reopen during the close animation hides nothing first, so a refresh can still be pending: whatever it was
+    -- for, everything is checked.
+    if timer or stale then B.CanGet.MarkAll() end
+    ClearPending()
+    -- Copy counts are read again; the walk is checked again only for what changed while closed. With nothing to
+    -- check, the wallet and the names are still read again, as a check would.
+    B.Data.WipeCatalogMemo()
+    B.CanGet.AccountData()
+    if not B.CanGet.Recheck() then
+        Trace("browser_rejudge", nil, B.CanGet.Rejudge)
+        B.CanGet.RefreshNames()
+    end
     B.Go({ kind = "overview" })
     Win.PlayOpen()
     opening = false

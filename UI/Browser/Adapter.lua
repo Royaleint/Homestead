@@ -23,6 +23,20 @@ function D.MemoVersion()
     return memoVersion
 end
 
+-- Empties the catalog memo in place; the memo version stays put.
+function D.WipeCatalogMemo()
+    wipe(B.State.catalogMemo)
+end
+
+-- The scanner's read state, with "ready" shown as "counting" while the can-get walk is being rebuilt (raw: the
+-- scanner's own, for deciding whether a check can run). Every browser read of the phase goes through here; the
+-- stale and done values pass through.
+function D.ReadState(raw)
+    local state, stale, done = HA.CatalogScanner:GetReadState()
+    if state == "ready" and not raw and B.CanGet.Building() then state = "counting" end
+    return state, stale, done
+end
+
 function D.IsReady()
     return (HA.VendorData and HA.VendorIdentity and HA.CatalogStore and HA.SourceManager) and true or false
 end
@@ -161,7 +175,7 @@ end
 function D.VendorCounts(vendor, noPrewarm)
     local BC = HA.BadgeCalculation
     if not (BC and vendor and vendor.npcID) then return nil end
-    if HA.CatalogScanner:GetReadState() ~= "ready" then
+    if D.ReadState() ~= "ready" then
         local stats = BC:UnreadVendorStats(vendor, "all")
         return stats.collected, stats.total
     end
